@@ -2,33 +2,32 @@ package com.score.senzswitch.actors
 
 import java.net.InetSocketAddress
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Props, Actor}
 import akka.io.{IO, Tcp}
+import org.slf4j.LoggerFactory
 
-import scala.collection.mutable.ArrayBuffer
-
-object Store {
-  val conns = new ArrayBuffer[ActorRef]()
+object SenzListener {
+  def props: Props = Props(new SenzListener)
 }
 
-/**
- * Created by eranga on 7/10/16.
- */
 class SenzListener extends Actor {
 
   import Tcp._
   import context.system
 
+  def logger = LoggerFactory.getLogger(this.getClass)
+
   IO(Tcp) ! Bind(self, new InetSocketAddress(9090))
 
   override def receive: Receive = {
     case Bound(localAddress) =>
-    // do some logging or setup ...
-    case CommandFailed(_: Bind) =>
-      context stop self
+      logger.info("Bound connection " + localAddress.getHostName)
     case Connected(remote, local) =>
+      logger.info("Connected " + remote.getHostName + " " + local.getHostName)
+
       val handler = context.actorOf(SenzHandler.props(sender))
       sender ! Register(handler)
-      Store.conns.append(handler)
+    case CommandFailed(_: Bind) =>
+      context stop self
   }
 }

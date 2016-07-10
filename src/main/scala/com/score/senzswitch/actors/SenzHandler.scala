@@ -1,35 +1,52 @@
 package com.score.senzswitch.actors
 
-import akka.actor.{Props, ActorRef, Actor}
+import akka.actor.{Actor, ActorRef, Props}
 import akka.io.Tcp
 import akka.util.ByteString
+import com.score.senzswitch.components.SenzActorStoreComp
+import org.slf4j.LoggerFactory
 
 
 object SenzHandler {
-  def props(sender: ActorRef): Props = {
-    Props(new SenzHandler(sender))
+
+  case class Senz(senzType: String, msg: String, user: String)
+
+  def props(senderRef: ActorRef): Props = {
+    Props(new SenzHandler(senderRef))
   }
+
 }
 
-/**
- * Created by eranga on 7/10/16.
- */
-class SenzHandler(actorRef: ActorRef) extends Actor {
+class SenzHandler(senderRef: ActorRef) extends Actor with SenzActorStoreComp {
 
-  import akka.io.Tcp._
+  import SenzHandler._
+
+  def logger = LoggerFactory.getLogger(this.getClass)
 
   def receive = {
-    case Received(data) =>
-      println("data recived " + data.toString)
+    case Tcp.Received(data) =>
+      val senzMsg = data.decodeString("UTF-8")
+      logger.info("Senz received " + senzMsg.replaceAll("\n", "").replaceAll("\r", ""))
 
-      sender ! Tcp.Write(ByteString("foo bar\n"))
-      for (con <- Store.conns) {
-        println(con.path)
-        con ! "MSG"
+      val senz = parse(senzMsg)
+      senz match {
+        case Senz("SHARE", _, user) =>
+          logger.info("SHARE from " + user)
+          actorStore.addActor(user, self)
+        case Senz("DATA", _, user) =>
+          logger.info("DATA from " + user)
+          actorStore.getActor(user).get ! senz
       }
-    case PeerClosed =>
+    case Tcp.PeerClosed =>
+      logger.info("Peer Closed")
       context stop self
-    case "MSG" =>
-      actorRef ! Tcp.Write(ByteString("foo\n"))
+    case Senz(senzType, msg, user) =>
+      senderRef ! Tcp.Write(ByteString(s"$msg\n"))
   }
+
+  def parse(senzMsg: String) = {
+    val tokens = senzMsg.split(" ")
+    Senz(tokens(0), tokens(1), tokens(2))
+  }
+
 }
