@@ -5,15 +5,15 @@ import akka.actor.ActorRef
 /**
  * Created by eranga on 5/20/16.
  */
-trait SenzActorStoreComp extends ActorStoreComp {
+trait ActorStoreCompImpl extends ActorStoreComp {
 
-  val actorStore = new PayzActorStore
+  val actorStore = new ActorStoreImpl
 
   object PayzActorStore {
     val actorRefs = scala.collection.mutable.LinkedHashMap[String, ActorRef]()
   }
 
-  class PayzActorStore extends ActorStore {
+  class ActorStoreImpl extends ActorStore {
 
     import PayzActorStore._
 

@@ -99,12 +99,12 @@ object RSAUtils extends Configuration {
     val keyPair = loadRSAKeyPair()
     val publicKey = keyPair.getPublic
 
-    val signature = Signature.getInstance("SHA256withRSA");
+    val signature = Signature.getInstance("SHA256withRSA")
     signature.initVerify(publicKey)
     signature.update(payload.getBytes)
 
     // decode(BASE64) signed payload and verify signature
-    signature.verify(new BASE64Decoder().decodeBuffer(signedPayload));
+    signature.verify(new BASE64Decoder().decodeBuffer(signedPayload))
   }
 
   def encrypt(payload: String, publicKey: PublicKey) = {

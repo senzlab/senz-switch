@@ -3,7 +3,6 @@ package com.score.senzswitch.actors
 import akka.actor.{Actor, ActorRef, Props}
 import akka.io.Tcp
 import akka.util.ByteString
-import com.score.senzswitch.components.SenzActorStoreComp
 import org.slf4j.LoggerFactory
 
 
@@ -17,7 +16,7 @@ object SenzHandler {
 
 }
 
-class SenzHandler(senderRef: ActorRef) extends Actor with SenzActorStoreComp {
+class SenzHandler(senderRef: ActorRef) extends Actor {
 
   import SenzHandler._
 
@@ -25,17 +24,17 @@ class SenzHandler(senderRef: ActorRef) extends Actor with SenzActorStoreComp {
 
   def receive = {
     case Tcp.Received(data) =>
-      val senzMsg = data.decodeString("UTF-8")
-      logger.info("Senz received " + senzMsg.replaceAll("\n", "").replaceAll("\r", ""))
+      val senzMsg = data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", "")
+      logger.info("Senz received " + senzMsg)
 
       val senz = parse(senzMsg)
       senz match {
         case Senz("SHARE", _, user) =>
           logger.info("SHARE from " + user)
-          actorStore.addActor(user, self)
+          SenzListener.actorRefs.put(user, self)
         case Senz("DATA", _, user) =>
           logger.info("DATA from " + user)
-          actorStore.getActor(user).get ! senz
+          SenzListener.actorRefs.get(user).get ! senz
       }
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")

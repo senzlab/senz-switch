@@ -2,11 +2,13 @@ package com.score.senzswitch.actors
 
 import java.net.InetSocketAddress
 
-import akka.actor.{Props, Actor}
+import akka.actor.{ActorRef, Props, Actor}
 import akka.io.{IO, Tcp}
 import org.slf4j.LoggerFactory
 
 object SenzListener {
+  val actorRefs = scala.collection.mutable.LinkedHashMap[String, ActorRef]()
+
   def props: Props = Props(new SenzListener)
 }
 
