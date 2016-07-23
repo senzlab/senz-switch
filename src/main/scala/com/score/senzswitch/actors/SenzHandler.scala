@@ -20,7 +20,16 @@ class SenzHandler(senderRef: ActorRef) extends Actor {
 
   def logger = LoggerFactory.getLogger(this.getClass)
 
-  def receive = {
+  override def preStart() = {
+    logger.info("[_________START ACTOR__________] " + context.self.path)
+  }
+
+  override def postStop() = {
+    super.postStop()
+    logger.info("[_________STOP ACTOR__________] " + context.self.path)
+  }
+
+  override def receive = {
     case Tcp.Received(data) =>
       val senzMsg = SenzMsg(data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", ""))
       logger.info("Senz received " + senzMsg)

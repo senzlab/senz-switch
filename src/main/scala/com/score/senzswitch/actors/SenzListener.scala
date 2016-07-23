@@ -2,7 +2,8 @@ package com.score.senzswitch.actors
 
 import java.net.InetSocketAddress
 
-import akka.actor.{ActorRef, Props, Actor}
+import akka.actor.SupervisorStrategy.Stop
+import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props}
 import akka.io.{IO, Tcp}
 import org.slf4j.LoggerFactory
 
@@ -20,6 +21,23 @@ class SenzListener extends Actor {
   def logger = LoggerFactory.getLogger(this.getClass)
 
   IO(Tcp) ! Bind(self, new InetSocketAddress(9090))
+
+  override def preStart() = {
+    logger.info("[_________START ACTOR__________] " + context.self.path)
+  }
+
+  override def postStop() = {
+    super.postStop()
+    logger.info("[_________STOP ACTOR__________] " + context.self.path)
+  }
+
+  override def supervisorStrategy = OneForOneStrategy() {
+    case e: Exception =>
+      logger.error("Exception caught, [STOP ACTOR] " + e)
+
+      // stop all actors here
+      Stop
+  }
 
   override def receive: Receive = {
     case Bound(localAddress) =>
