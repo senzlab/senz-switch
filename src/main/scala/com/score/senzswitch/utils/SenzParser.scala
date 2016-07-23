@@ -61,44 +61,80 @@ object SenzParser {
     tokens.find(_.startsWith("@")).get.trim.substring(1)
   }
 
-  def getAttributes(tokes: Array[String]) = {
-    val attr = scala.collection.mutable.Map[String, String]()
-    def populateAttr(i: Int, t: Array[String]): scala.collection.mutable.Map[String, String] = {
-      if (i < t.length - 1) {
-        val token = t(i)
-        val nextToken = t(i + 1)
-        if (token.startsWith("$")) {
-          // $lat 23.4
-          attr.put(token, nextToken)
-          populateAttr(i + 2, t)
-        } else if (token.startsWith("#")) {
-          if (nextToken.startsWith("#") || nextToken.startsWith("$")) {
+  def getAttributes(attr: scala.collection.mutable.Map[String, String], tokes: Array[String]): scala.collection.mutable.Map[String, String] = {
+    //val attr = scala.collection.mutable.Map[String, String]()
+    tokes match {
+      case Array() =>
+        // empty array
+        attr
+      case Array(a) =>
+        // last index
+        if (a.startsWith("#")) {
+          attr.put(a, "")
+        }
+        attr
+      case Array(_, _*) =>
+        // have at least two elements
+        if (tokes(0).startsWith("$")) {
+          attr.put(tokes(0), tokes(1))
+          getAttributes(attr, tokes.drop(2))
+        } else if (tokes(0).startsWith("#")) {
+          if (tokes(1).startsWith("#") || tokes(1).startsWith("$")) {
             // #lat $key 23.23
             // #lat #lon
-            attr.put(token, "")
-            populateAttr(i + 1, t)
-          } else if (!nextToken.startsWith("@")) {
-            // #lat 2.323
-            attr.put(token, nextToken)
-            populateAttr(i + 2, t)
+            attr.put(tokes(0), "")
+            getAttributes(attr, tokes.drop(1))
+          } else {
+            // #lat 3.342
+            attr.put(tokes(0), tokes(1))
+            getAttributes(attr, tokes.drop(2))
           }
+        } else {
+          attr
         }
-        populateAttr(i + 1, t)
-      } else if (i == t.length - 1) {
-        if (t(i).startsWith("#")) {
-          attr.put(t(i), "")
-        }
-      }
-
-      attr
     }
 
-    populateAttr(0, tokes)
+
+
+    //    def populateAttr(t: Array[String]): scala.collection.mutable.Map[String, String] = {
+    //      t match {
+    //        case Array() =>
+    //          // empty array
+    //          attr
+    //        case Array(a) =>
+    //          // last index
+    //          if (a.startsWith("#")) {
+    //            attr.put(a, "")
+    //          }
+    //          attr
+    //        case Array(_, _*) =>
+    //          // have at least two elements
+    //          if (t(0).startsWith("$")) {
+    //            attr.put(t(0), t(1))
+    //            populateAttr(t.drop(2))
+    //          } else if (t(0).startsWith("#")) {
+    //            if (t(1).startsWith("#") || t(1).startsWith("$")) {
+    //              // #lat $key 23.23
+    //              // #lat #lon
+    //              attr.put(t(0), "")
+    //              populateAttr(t.drop(1))
+    //            } else {
+    //              // #lat 3.342
+    //              attr.put(t(0), t(1))
+    //              populateAttr(t.drop(2))
+    //            }
+    //          } else {
+    //            attr
+    //          }
+    //      }
+    //    }
+
+    //getAttributes(tokes)
   }
 
 }
 
 object Main extends App {
-  println(SenzParser.getAttributes(Array("#lat", "3.4", "#msg", "$key", " 3.23 ", "#lon", "#4")))
+  println(SenzParser.getAttributes(scala.collection.mutable.Map[String, String](), Array("#lat", "3.4", "#msg", "$key", " 3.23 ", "#lon", "#4")))
 }
 
