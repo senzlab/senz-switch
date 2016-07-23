@@ -5,6 +5,7 @@ import java.security._
 import java.security.spec.{PKCS8EncodedKeySpec, X509EncodedKeySpec}
 import javax.crypto.Cipher
 
+import com.score.senzswitch.components.CertificateStoreComp
 import com.score.senzswitch.config.Configuration
 import sun.misc.{BASE64Decoder, BASE64Encoder}
 
@@ -12,6 +13,7 @@ import sun.misc.{BASE64Decoder, BASE64Encoder}
  * Created by eranga on 1/11/16.
  */
 object RSAUtils extends Configuration {
+  this: CertificateStoreComp with Configuration =>
   def initRSAKeys() = {
     // first create .keys directory
     val dir: File = new File(keysDir)
