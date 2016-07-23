@@ -61,33 +61,29 @@ object SenzParser {
     tokens.find(_.startsWith("@")).get.trim.substring(1)
   }
 
-  def getAttributes(attr: scala.collection.mutable.Map[String, String], tokes: Array[String]): scala.collection.mutable.Map[String, String] = {
-    //val attr = scala.collection.mutable.Map[String, String]()
+  def getAttributes(tokes: Array[String], attr: Map[String, String] = Map[String, String]()): Map[String, String] = {
     tokes match {
       case Array() =>
         // empty array
         attr
       case Array(a) =>
         // last index
-        if (a.startsWith("#")) {
-          attr.put(a, "")
-        }
-        attr
+        if (a.startsWith("#")) attr + (a -> "") else attr
       case Array(_, _*) =>
         // have at least two elements
         if (tokes(0).startsWith("$")) {
-          attr.put(tokes(0), tokes(1))
-          getAttributes(attr, tokes.drop(2))
+          //attr.put(tokes(0), tokes(1))
+          getAttributes(tokes.drop(2), attr + (tokes(0) -> tokes(1)))
         } else if (tokes(0).startsWith("#")) {
           if (tokes(1).startsWith("#") || tokes(1).startsWith("$")) {
             // #lat $key 23.23
             // #lat #lon
-            attr.put(tokes(0), "")
-            getAttributes(attr, tokes.drop(1))
+            //attr.put(tokes(0), "")
+            getAttributes(tokes.drop(1), attr + (tokes(0) -> ""))
           } else {
             // #lat 3.342
-            attr.put(tokes(0), tokes(1))
-            getAttributes(attr, tokes.drop(2))
+            //attr.put(tokes(0), tokes(1))
+            getAttributes(tokes.drop(2), attr + (tokes(0) -> tokes(1)))
           }
         } else {
           attr
@@ -135,6 +131,6 @@ object SenzParser {
 }
 
 object Main extends App {
-  println(SenzParser.getAttributes(scala.collection.mutable.Map[String, String](), Array("#lat", "3.4", "#msg", "$key", " 3.23 ", "#lon", "#4")))
+  println(SenzParser.getAttributes(Array("#lat", "3.4", "#msg", "$key", " 3.23 ", "#lon", "#4")))
 }
 
