@@ -5,7 +5,9 @@ object SenzType extends Enumeration {
   val SHARE, GET, PUT, DATA, PING = Value
 }
 
-import SenzType._
+import com.score.senzswitch.protocols.SenzType._
+
+case class SenzMsg(data: String)
 
 case class Senz(senzType: SenzType, sender: String, receiver: String, attributes: Map[String, String], signature: Option[String])
 

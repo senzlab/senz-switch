@@ -64,8 +64,8 @@ object SenzParser {
   }
 
 }
-
-object Main extends App {
-  SenzParser.parse("SHARE #acc #amnt #key 4.34 #la @era ^ban digisg")
-}
+//
+//object Main extends App {
+//  SenzParser.parse("SHARE #acc #amnt #key 4.34 #la @era ^ban digisg")
+//}
 
