@@ -35,7 +35,7 @@ class SenzListener extends Actor {
     case e: Exception =>
       logger.error("Exception caught, [STOP ACTOR] " + e)
 
-      // stop all actors here
+      // stop failed actors here
       Stop
   }
 

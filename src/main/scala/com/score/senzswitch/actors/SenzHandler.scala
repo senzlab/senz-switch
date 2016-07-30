@@ -10,9 +10,7 @@ import org.slf4j.LoggerFactory
 
 
 object SenzHandler {
-
   def props(senderRef: ActorRef) = Props(new SenzHandler(senderRef))
-
 }
 
 class SenzHandler(senderRef: ActorRef) extends Actor with Configuration {
