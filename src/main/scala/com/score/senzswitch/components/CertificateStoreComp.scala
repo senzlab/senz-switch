@@ -11,7 +11,9 @@ trait CertificateStoreComp {
   val certificateStore: CertificateStore
 
   trait CertificateStore {
-    def getSwitchKey(keyType: KeyType): Option[SwitchKey]
+    def saveSwitchKey(switchKey: SwitchKey)
+
+    def findSwitchKey(keyType: KeyType): Option[SwitchKey]
 
     def saveSenzKey(senzKey: SenzKey)
 

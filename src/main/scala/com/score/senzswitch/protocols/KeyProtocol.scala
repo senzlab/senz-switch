@@ -8,7 +8,7 @@ object KeyType extends Enumeration {
 
 import com.score.senzswitch.protocols.KeyType._
 
-case class SwitchKey(keyType: KeyType, key: Array[Byte])
+case class SwitchKey(keyType: KeyType, key: String)
 
-case class SenzKey(name: String, key: Array[Byte])
+case class SenzKey(name: String, key: String)
 

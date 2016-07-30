@@ -17,9 +17,10 @@ trait Configuration {
   lazy val switchName = Try(config.getString("switch.name")).getOrElse("senzswitch")
   lazy val switchPort = Try(config.getInt("switch.port")).getOrElse(9090)
 
-  // cassandra db config
-  lazy val cassandraHost = Try(config.getString("db.cassandra.host")).getOrElse("localhost")
-  lazy val cassandraPort = Try(config.getInt("db.cassandra.port")).getOrElse(9160)
+  // mongo db config
+  lazy val mongoHost = Try(config.getString("db.mongo.host")).getOrElse("dev.localhost")
+  lazy val mongoPort = Try(config.getInt("db.mongo.port")).getOrElse(27017)
+  lazy val dbName = Try(config.getString("db.mongo.db-name")).getOrElse("senz")
 
   // keys config
   lazy val keysDir = Try(config.getString("keys.dir")).getOrElse(".keys")
