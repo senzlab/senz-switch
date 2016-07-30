@@ -10,18 +10,18 @@ import com.score.senzswitch.protocols.{KeyType, SenzKey, SwitchKey}
 /**
  * Created by eranga on 7/15/16.
  */
-trait CertificateStoreCompImpl extends CertificateStoreComp {
+trait KeyStoreCompImpl extends KeyStoreComp {
 
   this: Configuration =>
 
-  val certificateStore = new CertificateStoreImpl()
+  val keyStore = new KeyStoreImpl()
 
   object CertificateStoreImpl {
     val client = MongoClient(mongoHost, mongoPort)
     val senzDb = client(dbName)
   }
 
-  class CertificateStoreImpl extends CertificateStore {
+  class KeyStoreImpl extends KeyStore {
 
     import CertificateStoreImpl._
 

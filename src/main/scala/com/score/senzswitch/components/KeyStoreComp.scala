@@ -6,11 +6,11 @@ import com.score.senzswitch.protocols.{SenzKey, SwitchKey}
 /**
  * Created by eranga on 7/15/16.
  */
-trait CertificateStoreComp {
+trait KeyStoreComp {
 
-  val certificateStore: CertificateStore
+  val keyStore: KeyStore
 
-  trait CertificateStore {
+  trait KeyStore {
     def saveSwitchKey(switchKey: SwitchKey)
 
     def findSwitchKey(keyType: KeyType): Option[SwitchKey]
