@@ -20,7 +20,7 @@ class SenzListener extends Actor {
 
   def logger = LoggerFactory.getLogger(this.getClass)
 
-  IO(Tcp) ! Bind(self, new InetSocketAddress(9191))
+  IO(Tcp) ! Bind(self, new InetSocketAddress(7070))
 
   override def preStart() = {
     logger.info("[_________START ACTOR__________] " + context.self.path)

@@ -55,6 +55,22 @@
         <appender-ref ref="FILE-ROLLING"/>
     </logger>
 
+    <logger name="org.mongodb.driver.cluster">
+        <level value="ERROR"/>
+        <appender-ref ref="FILE-ROLLING"/>
+    </logger>
+
+    <logger name="org.mongodb.driver.protocol.query">
+        <level value="ERROR"/>
+        <appender-ref ref="FILE-ROLLING"/>
+    </logger>
+
+    <logger name="com.mongodb.casbah.commons.conversions.scala.RegisterConversionHelpers">
+        <level value="ERROR"/>
+        <appender-ref ref="FILE-ROLLING"/>
+    </logger>
+
+
     <logger name="io.netty">
         <level value="OFF"/>
     </logger>

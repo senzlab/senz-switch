@@ -3,8 +3,9 @@ package com.score.senzswitch.actors
 import akka.actor.{Actor, ActorRef, Props}
 import akka.io.Tcp
 import akka.util.ByteString
+import com.score.senzswitch.components.KeyStoreCompImpl
 import com.score.senzswitch.config.Configuration
-import com.score.senzswitch.protocols.{Senz, SenzMsg, SenzType}
+import com.score.senzswitch.protocols.{Senz, SenzKey, SenzMsg, SenzType}
 import com.score.senzswitch.utils.SenzParser
 import org.slf4j.LoggerFactory
 
@@ -13,7 +14,7 @@ object SenzHandler {
   def props(senderRef: ActorRef) = Props(new SenzHandler(senderRef))
 }
 
-class SenzHandler(senderRef: ActorRef) extends Actor with Configuration {
+class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl {
 
   def logger = LoggerFactory.getLogger(this.getClass)
 
@@ -52,25 +53,33 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration {
   }
 
   def handleShare(senz: Senz, senzMsg: SenzMsg) = {
-    if (senz.receiver.equalsIgnoreCase(switchName)) {
-      // public key sharing
-      // store actor
-      SenzListener.actorRefs.put(senz.sender, self)
-    } else {
-      // share senz for other senzie
-      // forward senz to receiver
-      SenzListener.actorRefs.get(senz.receiver).get ! senzMsg
+    senz.receiver match {
+      case `switchName` =>
+        // should be public key sharing
+        // store public key, store actor
+        keyStore.saveSenzKey(SenzKey(senz.sender, senz.attributes.get("#pubkey").get))
+        SenzListener.actorRefs.put(senz.sender, self)
+
+        // reply share done msg
+        self ! SenzMsg(s"DATA #msg RegDone @${senz.sender} ^${senz.receiver} digsig")
+      case _ =>
+        // share senz for other senzie
+        // forward senz to receiver
+        SenzListener.actorRefs.get(senz.receiver).get ! senzMsg
     }
   }
 
   def handleGet(senz: Senz, senzMsg: SenzMsg) = {
-    if (senz.receiver.equalsIgnoreCase(switchName)) {
-      // most of the time request public key of other senzie
-      // TODO handle it
-    } else {
-      // get senz for other senzie
-      // forward senz to receiver
-      SenzListener.actorRefs.get(senz.receiver).get ! senzMsg
+    senz.receiver match {
+      case `switchName` =>
+        // should be request for public key of other senzie
+        // find senz key and send it back
+        val key = keyStore.findSenzKey(senz.attributes.get("#pubkey").get).get.key
+        self ! SenzMsg(s"DATA #pubkey $key @${senz.sender} ^${senz.receiver} digsig")
+      case _ =>
+        // get senz for other senzie
+        // forward senz to receiver
+        SenzListener.actorRefs.get(senz.receiver).get ! senzMsg
     }
   }
 
