@@ -18,12 +18,13 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
 
   def logger = LoggerFactory.getLogger(this.getClass)
 
+  var name: String = _
+
   override def preStart() = {
     logger.info("[_________START ACTOR__________] " + context.self.path)
   }
 
   override def postStop() = {
-    super.postStop()
     logger.info("[_________STOP ACTOR__________] " + context.self.path)
   }
 
@@ -47,6 +48,8 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
       }
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
+
+      SenzListener.actorRefs.remove(name)
       context stop self
     case SenzMsg(data) =>
       senderRef ! Tcp.Write(ByteString(s"$data\n\r"))
@@ -57,8 +60,11 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
       case `switchName` =>
         // should be public key sharing
         // store public key, store actor
+        name = senz.sender
         keyStore.saveSenzKey(SenzKey(senz.sender, senz.attributes.get("#pubkey").get))
-        SenzListener.actorRefs.put(senz.sender, self)
+        SenzListener.actorRefs.put(name, self)
+
+        logger.info(s"Reg done of senzie $name")
 
         // reply share done msg
         self ! SenzMsg(s"DATA #msg RegDone @${senz.sender} ^${senz.receiver} digsig")
@@ -72,6 +78,8 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
   def handleGet(senz: Senz, senzMsg: SenzMsg) = {
     senz.receiver match {
       case `switchName` =>
+        logger.info(s"GET from $name")
+
         // should be request for public key of other senzie
         // find senz key and send it back
         val key = keyStore.findSenzKey(senz.attributes.get("#pubkey").get).get.key
@@ -85,7 +93,10 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
 
   def handlePing(senz: Senz) = {
     // store/restore actor
-    SenzListener.actorRefs.put(senz.sender, self)
+    name = senz.sender
+    SenzListener.actorRefs.put(name, self)
+
+    logger.info(s"PING done of senzie $name")
   }
 
   def handleData(senz: Senz, senzMsg: SenzMsg) = {

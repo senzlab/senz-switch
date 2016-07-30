@@ -27,7 +27,6 @@ class SenzListener extends Actor {
   }
 
   override def postStop() = {
-    super.postStop()
     logger.info("[_________STOP ACTOR__________] " + context.self.path)
   }
 
