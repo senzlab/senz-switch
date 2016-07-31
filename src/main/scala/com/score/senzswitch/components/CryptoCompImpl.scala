@@ -1,10 +1,10 @@
 package com.score.senzswitch.components
 
+import java.security._
 import java.security.spec.{PKCS8EncodedKeySpec, X509EncodedKeySpec}
-import java.security.{KeyFactory, PrivateKey, PublicKey, Signature}
 
 import com.score.senzswitch.config.Configuration
-import com.score.senzswitch.protocols.{KeyType, Senz, SenzType}
+import com.score.senzswitch.protocols.{Senz, SenzType, SwitchKey}
 import sun.misc.{BASE64Decoder, BASE64Encoder}
 
 /**
@@ -17,11 +17,31 @@ trait CryptoCompImpl extends CryptoComp {
   val crypto = new CryptoImpl()
 
   class CryptoImpl extends Crypto {
+
+    override def initKeys() = {
+      // only save if keys not exists in db
+      keyStore.findSwitchKey match {
+        case SwitchKey(Some(pubKey), Some(privateKye)) =>
+          // already existing keys
+        case _ =>
+          // no keys
+          // generate public private key pair
+          val keyPairGenerator = KeyPairGenerator.getInstance("RSA")
+          keyPairGenerator.initialize(1024, new SecureRandom)
+          val keyPair: KeyPair = keyPairGenerator.generateKeyPair
+
+          // save key
+          val pubKey = new BASE64Encoder().encode(keyPair.getPublic.getEncoded)
+          val privateKey = new BASE64Encoder().encode(keyPair.getPrivate.getEncoded)
+          keyStore.saveSwitchKey(SwitchKey(Some(pubKey), Some(privateKey)))
+      }
+    }
+
     override def sing(payload: String) = {
       // find private key
-      val switchKey = keyStore.findSwitchKey(KeyType.PRIVATE_KEY).get
+      val switchKey = keyStore.findSwitchKey
       val keyFactory: KeyFactory = KeyFactory.getInstance("RSA")
-      val privateKeySpec: PKCS8EncodedKeySpec = new PKCS8EncodedKeySpec(new BASE64Decoder().decodeBuffer(switchKey.key))
+      val privateKeySpec: PKCS8EncodedKeySpec = new PKCS8EncodedKeySpec(new BASE64Decoder().decodeBuffer(switchKey.privateKey.get))
       val privateKey: PrivateKey = keyFactory.generatePrivate(privateKeySpec)
 
       // sign the payload
@@ -42,7 +62,6 @@ trait CryptoCompImpl extends CryptoComp {
           case _ =>
             // get public key of senzie
             new BASE64Decoder().decodeBuffer(keyStore.findSenzieKey(senz.sender).get.key)
-
         }
       }
 

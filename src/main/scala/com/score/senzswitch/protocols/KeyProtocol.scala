@@ -6,9 +6,7 @@ object KeyType extends Enumeration {
   val PUBLIC_KEY, PRIVATE_KEY = Value
 }
 
-import com.score.senzswitch.protocols.KeyType._
-
-case class SwitchKey(keyType: KeyType, key: String)
+case class SwitchKey(pubKey: Option[String], privateKey: Option[String])
 
 case class SenzKey(name: String, key: String)
 

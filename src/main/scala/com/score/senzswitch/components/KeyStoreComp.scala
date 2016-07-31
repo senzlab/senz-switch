@@ -1,6 +1,5 @@
 package com.score.senzswitch.components
 
-import com.score.senzswitch.protocols.KeyType.KeyType
 import com.score.senzswitch.protocols.{SenzKey, SwitchKey}
 
 /**
@@ -11,9 +10,10 @@ trait KeyStoreComp {
   val keyStore: KeyStore
 
   trait KeyStore {
+
     def saveSwitchKey(switchKey: SwitchKey)
 
-    def findSwitchKey(keyType: KeyType): Option[SwitchKey]
+    def findSwitchKey: SwitchKey
 
     def saveSenzieKey(senzKey: SenzKey)
 
