@@ -19,8 +19,8 @@ RUN rm -rf /var/cache/oracle-jdk7-installer
 ENV JAVA_HOME /usr/lib/jvm/java-7-oracle
 
 # set service variables
-ENV CASSANDRA_HOST dev.localhost
-ENV CASSANDRA_PORT 9090
+ENV MONGO_HOST dev.localhost
+ENV MONGO_PORT 27017
 
 # working directory
 WORKDIR /app

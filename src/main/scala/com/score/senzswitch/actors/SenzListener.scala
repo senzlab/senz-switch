@@ -5,6 +5,7 @@ import java.net.InetSocketAddress
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props}
 import akka.io.{IO, Tcp}
+import com.score.senzswitch.config.Configuration
 import org.slf4j.LoggerFactory
 
 object SenzListener {
@@ -13,14 +14,14 @@ object SenzListener {
   def props: Props = Props(new SenzListener)
 }
 
-class SenzListener extends Actor {
+class SenzListener extends Actor with Configuration {
 
   import Tcp._
   import context.system
 
   def logger = LoggerFactory.getLogger(this.getClass)
 
-  IO(Tcp) ! Bind(self, new InetSocketAddress(7070))
+  IO(Tcp) ! Bind(self, new InetSocketAddress(switchPort))
 
   override def preStart() = {
     logger.info("[_________START ACTOR__________] " + context.self.path)

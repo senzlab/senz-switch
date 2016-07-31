@@ -64,22 +64,23 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
         keyStore.saveSenzKey(SenzKey(senz.sender, senz.attributes.get("#pubkey").get))
         SenzListener.actorRefs.put(name, self)
 
-        logger.info(s"Reg done of senzie $name")
+        logger.info(s"Registration done of senzie $name")
 
         // reply share done msg
         self ! SenzMsg(s"DATA #msg RegDone @${senz.sender} ^${senz.receiver} digsig")
       case _ =>
         // share senz for other senzie
         // forward senz to receiver
+        logger.info(s"SAHRE from senzie $name")
         SenzListener.actorRefs.get(senz.receiver).get ! senzMsg
     }
   }
 
   def handleGet(senz: Senz, senzMsg: SenzMsg) = {
+    logger.info(s"GET from senzie $name")
+
     senz.receiver match {
       case `switchName` =>
-        logger.info(s"GET from $name")
-
         // should be request for public key of other senzie
         // find senz key and send it back
         val key = keyStore.findSenzKey(senz.attributes.get("#pubkey").get).get.key
@@ -92,19 +93,23 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
   }
 
   def handlePing(senz: Senz) = {
+    logger.info(s"PING from senzie $name")
+
     // store/restore actor
     name = senz.sender
     SenzListener.actorRefs.put(name, self)
-
-    logger.info(s"PING done of senzie $name")
   }
 
   def handleData(senz: Senz, senzMsg: SenzMsg) = {
+    logger.info(s"DATA from senzie $name")
+
     // forward senz to receiver
     SenzListener.actorRefs.get(senz.receiver).get ! senzMsg
   }
 
   def handlePut(senz: Senz, senzMsg: SenzMsg) = {
+    logger.info(s"PUT from senzie $name")
+
     // forward senz to receiver
     SenzListener.actorRefs.get(senz.receiver).get ! senzMsg
   }
