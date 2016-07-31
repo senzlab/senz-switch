@@ -9,12 +9,16 @@ import com.score.senzswitch.protocols.{Senz, SenzKey, SenzMsg, SenzType}
 import com.score.senzswitch.utils.SenzParser
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.duration._
+
 
 object SenzHandler {
   def props(senderRef: ActorRef) = Props(new SenzHandler(senderRef))
 }
 
 class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl {
+
+  import context._
 
   def logger = LoggerFactory.getLogger(this.getClass)
 
@@ -34,6 +38,9 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
       logger.info("Senz received " + senzMsg)
 
       val senz = SenzParser.parse(senzMsg.data)
+
+      // TODO validate signature
+
       senz match {
         case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
           handleShare(senz, senzMsg)
@@ -68,6 +75,10 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
 
         // reply share done msg
         self ! SenzMsg(s"DATA #msg RegDone @${senz.sender} ^${senz.receiver} digsig")
+
+        // start to send periodic ping message
+        // start scheduler to PING on every 10 seconds
+        system.scheduler.schedule(10 seconds, 10 seconds, self, SenzMsg("PING"))
       case _ =>
         // share senz for other senzie
         // forward senz to receiver
@@ -98,6 +109,7 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
     // store/restore actor
     name = senz.sender
     SenzListener.actorRefs.put(name, self)
+    system.scheduler.schedule(10 seconds, 10 seconds, self, SenzMsg("PING"))
   }
 
   def handleData(senz: Senz, senzMsg: SenzMsg) = {
