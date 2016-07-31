@@ -42,14 +42,14 @@ trait KeyStoreCompImpl extends KeyStoreComp {
       Some(SwitchKey(keyType, encodedPublicKey.toString))
     }
 
-    override def saveSenzKey(senzKey: SenzKey) = {
+    override def saveSenzieKey(senzKey: SenzKey) = {
       // save key in db
       val coll = senzDb("senz_keys")
       val query = MongoDBObject("name" -> senzKey.name, "key" -> senzKey.key)
       coll.insert(query)
     }
 
-    override def findSenzKey(name: String): Option[SenzKey] = {
+    override def findSenzieKey(name: String): Option[SenzKey] = {
       // read key from db
       val coll = senzDb("senz_keys")
       val query = MongoDBObject("name" -> name)

@@ -120,4 +120,33 @@ object RSAUtils extends Configuration {
     new String(cipher.doFinal(payload))
   }
 
+  def verify(pubKey: String, payload: String, signedPayload: String) = {
+    // public key
+    val keyFactory: KeyFactory = KeyFactory.getInstance("RSA")
+    val publicKeySpec: X509EncodedKeySpec = new X509EncodedKeySpec(new BASE64Decoder().decodeBuffer(pubKey))
+    val publicKey: PublicKey = keyFactory.generatePublic(publicKeySpec)
+
+    // verify signature
+    val signature = Signature.getInstance("SHA256withRSA")
+    signature.initVerify(publicKey)
+    signature.update(payload.getBytes)
+
+    // decode(BASE64) signed payload and verify signature
+    signature.verify(new BASE64Decoder().decodeBuffer(signedPayload))
+  }
+
+  def sign(privateKey: String, payload: String) = {
+    val keyFactory: KeyFactory = KeyFactory.getInstance("RSA")
+    val publicKeySpec: X509EncodedKeySpec = new X509EncodedKeySpec(new BASE64Decoder().decodeBuffer(privateKey))
+//    val publicKey: PublicKey = keyFactory.generatePublic(publicKeySpec)
+//
+//    // sign the payload
+//    val signature: Signature = Signature.getInstance("SHA256withRSA")
+//    signature.initSign(privateKey)
+//    signature.update(payload.getBytes)
+//
+//    // signature as Base64 encoded string
+//    new BASE64Encoder().encode(signature.sign).replaceAll("\n", "").replaceAll("\r", "")
+  }
+
 }

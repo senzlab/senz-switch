@@ -7,7 +7,7 @@ import com.score.senzswitch.protocols.{Senz, SenzType}
  */
 object SenzParser {
 
-  def parse(senzMsg: String) = {
+  def parseSenz(senzMsg: String) = {
     val tokens = senzMsg.trim.split(" ")
 
     val senzType = getSenzType(tokens)
@@ -19,23 +19,23 @@ object SenzParser {
     Senz(senzType, sender, receiver, attr, signature)
   }
 
-  def getSenzType(tokes: Array[String]) = {
+  private def getSenzType(tokes: Array[String]) = {
     SenzType.withName(tokes.head.trim)
   }
 
-  def getSignature(tokens: Array[String]) = {
+  private def getSignature(tokens: Array[String]) = {
     Some(tokens.last.trim)
   }
 
-  def getSender(tokens: Array[String]) = {
+  private def getSender(tokens: Array[String]) = {
     tokens.find(_.startsWith("^")).get.trim.substring(1)
   }
 
-  def getReceiver(tokens: Array[String]) = {
+  private def getReceiver(tokens: Array[String]) = {
     tokens.find(_.startsWith("@")).get.trim.substring(1)
   }
 
-  def getAttributes(tokens: Array[String], attr: Map[String, String] = Map[String, String]()): Map[String, String] = {
+  private def getAttributes(tokens: Array[String], attr: Map[String, String] = Map[String, String]()): Map[String, String] = {
     tokens match {
       case Array() =>
         // empty array
@@ -63,8 +63,22 @@ object SenzParser {
     }
   }
 
+  def composeSenz(senz: Senz): String = {
+    // attributes comes as
+    //    1. #lat 3.432 #lon 23.343
+    //    2. #lat #lon
+    var attr = ""
+    for ((k, v) <- senz.attributes) {
+      attr += s"$k $v".trim + " "
+    }
+
+    s"${senz.senzType} ${attr.trim} @${senz.receiver} ^${senz.sender} ${senz.signature}"
+  }
+
 }
 
 //object Main extends App {
-//  println(SenzParser.parse("SHARE #acc #amnt #key 4.34 #la $key ja @era ^ban digisg").attributes)
+//  val s = SenzParser.parse("SHARE #acc #amnt #key 4.34 #la $key ja @era ^ban digisg")
+//  println(s.attributes)
+//  println(SenzParser.compose(s))
 //}

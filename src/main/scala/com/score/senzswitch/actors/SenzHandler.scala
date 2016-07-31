@@ -3,7 +3,7 @@ package com.score.senzswitch.actors
 import akka.actor.{Actor, ActorRef, Props}
 import akka.io.Tcp
 import akka.util.ByteString
-import com.score.senzswitch.components.KeyStoreCompImpl
+import com.score.senzswitch.components.{CryptoCompImpl, KeyStoreCompImpl}
 import com.score.senzswitch.config.Configuration
 import com.score.senzswitch.protocols.{Senz, SenzKey, SenzMsg, SenzType}
 import com.score.senzswitch.utils.SenzParser
@@ -16,7 +16,7 @@ object SenzHandler {
   def props(senderRef: ActorRef) = Props(new SenzHandler(senderRef))
 }
 
-class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl {
+class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl with CryptoCompImpl {
 
   import context._
 
@@ -37,21 +37,23 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
       val senzMsg = SenzMsg(data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", ""))
       logger.info("Senz received " + senzMsg)
 
-      val senz = SenzParser.parse(senzMsg.data)
-
-      // TODO validate signature
-
-      senz match {
-        case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
-          handleShare(senz, senzMsg)
-        case Senz(SenzType.PING, sender, receiver, attr, signature) =>
-          handlePing(senz)
-        case Senz(SenzType.GET, sender, receiver, attr, signature) =>
-          handleGet(senz, senzMsg)
-        case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
-          handleData(senz, senzMsg)
-        case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
-          handlePut(senz, senzMsg)
+      // parse and validate signature
+      val senz = SenzParser.parseSenz(senzMsg.data)
+      if (crypto.verify(senzMsg.data, senz)) {
+        senz match {
+          case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
+            handleShare(senz, senzMsg)
+          case Senz(SenzType.PING, sender, receiver, attr, signature) =>
+            handlePing(senz)
+          case Senz(SenzType.GET, sender, receiver, attr, signature) =>
+            handleGet(senz, senzMsg)
+          case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
+            handleData(senz, senzMsg)
+          case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
+            handlePut(senz, senzMsg)
+        }
+      } else {
+        context stop self
       }
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
@@ -68,7 +70,7 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
         // should be public key sharing
         // store public key, store actor
         name = senz.sender
-        keyStore.saveSenzKey(SenzKey(senz.sender, senz.attributes.get("#pubkey").get))
+        keyStore.saveSenzieKey(SenzKey(senz.sender, senz.attributes.get("#pubkey").get))
         SenzListener.actorRefs.put(name, self)
 
         logger.info(s"Registration done of senzie $name")
@@ -76,9 +78,8 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
         // reply share done msg
         self ! SenzMsg(s"DATA #msg RegDone @${senz.sender} ^${senz.receiver} digsig")
 
-        // start to send periodic ping message
-        // start scheduler to PING on every 10 seconds
-        system.scheduler.schedule(10 seconds, 10 seconds, self, SenzMsg("PING"))
+        // start scheduler to PING on every 10 minutes
+        system.scheduler.schedule(10 minutes, 10 minutes, self, SenzMsg("PING"))
       case _ =>
         // share senz for other senzie
         // forward senz to receiver
@@ -94,7 +95,7 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
       case `switchName` =>
         // should be request for public key of other senzie
         // find senz key and send it back
-        val key = keyStore.findSenzKey(senz.attributes.get("#pubkey").get).get.key
+        val key = keyStore.findSenzieKey(senz.attributes.get("#pubkey").get).get.key
         self ! SenzMsg(s"DATA #pubkey $key @${senz.sender} ^${senz.receiver} digsig")
       case _ =>
         // get senz for other senzie
@@ -109,7 +110,7 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
     // store/restore actor
     name = senz.sender
     SenzListener.actorRefs.put(name, self)
-    system.scheduler.schedule(10 seconds, 10 seconds, self, SenzMsg("PING"))
+    system.scheduler.schedule(10 minutes, 10 minutes, self, SenzMsg("PING"))
   }
 
   def handleData(senz: Senz, senzMsg: SenzMsg) = {
