@@ -66,7 +66,7 @@ trait CryptoCompImpl extends CryptoComp {
       }
 
       // signed payload(with out signature)
-      val signedPayload = payload.replace(senz.signature.get, "").trim
+      val signedPayload = payload.substring(0, payload.lastIndexOf(" ")).replaceAll(" ", "").trim
 
       // get public key of senzie
       val keyFactory: KeyFactory = KeyFactory.getInstance("RSA")

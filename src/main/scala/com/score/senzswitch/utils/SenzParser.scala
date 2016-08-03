@@ -78,7 +78,8 @@ object SenzParser {
 }
 
 //object Main extends App {
-//  val s = SenzParser.parse("SHARE #acc #amnt #key 4.34 #la $key ja @era ^ban digisg")
+//  //val s = SenzParser.parse("SHARE #acc #amnt #key 4.34 #la $key ja @era ^ban digisg")
+//  val s = SenzParser.parseSenz("SHARE #lon #msg #time 1470154641 #lat #chatzmsg @james ^lakmal ZcLnIOKNzqNkdS31v+9SYoRPKZYUTRMk5fyJEZcmgyH+BlUwATeEcB/aCmALH0G28ZmZE3JiBAlY1QBxynmuhjmhs3kRLNoJaxyop3hLuCndRK0vIQUsQCadwnSawojq5d/NUVE+ctE5p4oUud5QZVrgq9NKpJn7DT2DfchNPOI=")
 //  println(s.attributes)
-//  println(SenzParser.compose(s))
+//  //println(SenzParser.compose(s))
 //}

@@ -6,7 +6,7 @@ import akka.util.ByteString
 import com.score.senzswitch.components.{CryptoCompImpl, KeyStoreCompImpl}
 import com.score.senzswitch.config.Configuration
 import com.score.senzswitch.protocols.{Senz, SenzKey, SenzMsg, SenzType}
-import com.score.senzswitch.utils.SenzParser
+import com.score.senzswitch.utils.{SenzParser, SenzUtils}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
@@ -40,6 +40,8 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
       // parse and validate signature
       val senz = SenzParser.parseSenz(senzMsg.data)
       if (crypto.verify(senzMsg.data, senz)) {
+        logger.info("Signature verified")
+
         senz match {
           case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
             handleShare(senz, senzMsg)
@@ -53,6 +55,7 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
             handlePut(senz, senzMsg)
         }
       } else {
+        logger.error("Signature verification fail, so stop actor")
         context stop self
       }
     case Tcp.PeerClosed =>
@@ -70,16 +73,33 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
         // should be public key sharing
         // store public key, store actor
         name = senz.sender
-        keyStore.saveSenzieKey(SenzKey(senz.sender, senz.attributes.get("#pubkey").get))
-        SenzListener.actorRefs.put(name, self)
+        keyStore.findSenzieKey(name) match {
+          case Some(SenzKey(name, key)) =>
+            logger.info("Have senzies with name " + name)
 
-        logger.info(s"Registration done of senzie $name")
+            // user already exists
+            // send error
+            // reply share done msg
+            val payload = s"DATA #msg RegFail @${senz.sender} ^${senz.receiver}"
+            self ! SenzMsg(crypto.sing(payload))
+            self ! SenzMsg(crypto.sing(payload))
 
-        // reply share done msg
-        self ! SenzMsg(s"DATA #msg RegDone @${senz.sender} ^${senz.receiver} digsig")
+            context.stop(self)
+          case _ =>
+            logger.info("No senzies with name " + name)
 
-        // start scheduler to PING on every 10 minutes
-        system.scheduler.schedule(10 minutes, 10 minutes, self, SenzMsg("PING"))
+            keyStore.saveSenzieKey(SenzKey(senz.sender, senz.attributes.get("#pubkey").get))
+            SenzListener.actorRefs.put(name, self)
+
+            logger.info(s"Registration done of senzie $name")
+
+            // reply share done msg
+            val payload = s"DATA #msg RegDone @${senz.sender} ^${senz.receiver}"
+            self ! SenzMsg(crypto.sing(payload))
+
+            // start scheduler to PING on every 10 minutes
+            system.scheduler.schedule(10.minutes, 10.minutes, self, SenzMsg(crypto.sing(SenzUtils.getPingSenz(senz.sender, switchName))))
+        }
       case _ =>
         // share senz for other senzie
         // forward senz to receiver
@@ -96,7 +116,8 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
         // should be request for public key of other senzie
         // find senz key and send it back
         val key = keyStore.findSenzieKey(senz.attributes.get("#pubkey").get).get.key
-        self ! SenzMsg(s"DATA #pubkey $key @${senz.sender} ^${senz.receiver} digsig")
+        val payload = s"DATA #pubkey $key @${senz.sender} ^${senz.receiver}"
+        self ! SenzMsg(crypto.sing(payload))
       case _ =>
         // get senz for other senzie
         // forward senz to receiver
@@ -110,7 +131,7 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
     // store/restore actor
     name = senz.sender
     SenzListener.actorRefs.put(name, self)
-    system.scheduler.schedule(10 minutes, 10 minutes, self, SenzMsg("PING"))
+    system.scheduler.schedule(10.minutes, 10.minutes, self, SenzMsg(crypto.sing(SenzUtils.getPingSenz(senz.sender, switchName))))
   }
 
   def handleData(senz: Senz, senzMsg: SenzMsg) = {
