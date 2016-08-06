@@ -1,6 +1,6 @@
 package com.score.senzswitch.actors
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorRef, Props, Terminated}
 import akka.io.Tcp
 import akka.util.ByteString
 import com.score.senzswitch.components.{CryptoCompImpl, KeyStoreCompImpl}
@@ -23,6 +23,8 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
   def logger = LoggerFactory.getLogger(this.getClass)
 
   var name: String = _
+
+  context watch senderRef
 
   override def preStart() = {
     logger.info("[_________START ACTOR__________] " + context.self.path)
@@ -55,11 +57,25 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
             handlePut(senz, senzMsg)
         }
       } else {
-        logger.error("Signature verification fail, so stop actor")
+        logger.error("Signature verification fail")
+
+        val payload = s"DATA #msg VerificationFail @${senz.sender} ^${senz.receiver}"
+        self ! SenzMsg(crypto.sing(payload))
+
         context stop self
       }
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
+
+      SenzListener.actorRefs.remove(name)
+      context stop self
+    case Tcp.PeerClosed =>
+      logger.info("Peer Closed")
+
+      SenzListener.actorRefs.remove(name)
+      context stop self
+    case Terminated(`senderRef`) =>
+      logger.info("Actor terminated " + senderRef.path)
 
       SenzListener.actorRefs.remove(name)
       context stop self
@@ -74,14 +90,13 @@ class SenzHandler(senderRef: ActorRef) extends Actor with Configuration with Key
         // store public key, store actor
         name = senz.sender
         keyStore.findSenzieKey(name) match {
-          case Some(SenzKey(name, key)) =>
+          case Some(SenzKey(_, _)) =>
             logger.info("Have senzies with name " + name)
 
             // user already exists
             // send error
             // reply share done msg
             val payload = s"DATA #msg RegFail @${senz.sender} ^${senz.receiver}"
-            self ! SenzMsg(crypto.sing(payload))
             self ! SenzMsg(crypto.sing(payload))
 
             context.stop(self)
