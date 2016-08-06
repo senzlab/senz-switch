@@ -17,16 +17,16 @@ trait ActorStoreCompImpl extends ActorStoreComp {
 
     import PayzActorStore._
 
-    override def getActor(id: String): Option[ActorRef] = {
-      actorRefs.get(id)
+    override def getActor(name: String): Option[ActorRef] = {
+      actorRefs.get(name)
     }
 
-    override def addActor(id: String, actorRef: ActorRef) = {
-      actorRefs.put(id, actorRef)
+    override def addActor(name: String, actorRef: ActorRef) = {
+      actorRefs.put(name, actorRef)
     }
 
-    override def removeActor(id: String) {
-      actorRefs.remove(id)
+    override def removeActor(name: String) {
+      actorRefs.remove(name)
     }
   }
 

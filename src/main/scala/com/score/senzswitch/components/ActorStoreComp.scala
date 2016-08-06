@@ -10,11 +10,11 @@ trait ActorStoreComp {
   val actorStore: ActorStore
 
   trait ActorStore {
-    def getActor(id: String): Option[ActorRef]
+    def getActor(name: String): Option[ActorRef]
 
-    def addActor(id: String, actor: ActorRef)
+    def addActor(name: String, actor: ActorRef)
 
-    def removeActor(id: String)
+    def removeActor(name: String)
   }
 
 }

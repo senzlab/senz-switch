@@ -8,13 +8,13 @@ import akka.io.{IO, Tcp}
 import com.score.senzswitch.config.Configuration
 import org.slf4j.LoggerFactory
 
-object SenzListener {
+object SenzListenerActor {
   val actorRefs = scala.collection.mutable.LinkedHashMap[String, ActorRef]()
 
-  def props: Props = Props(new SenzListener)
+  def props: Props = Props(new SenzListenerActor)
 }
 
-class SenzListener extends Actor with Configuration {
+class SenzListenerActor extends Actor with Configuration {
 
   import Tcp._
   import context.system
@@ -45,7 +45,7 @@ class SenzListener extends Actor with Configuration {
     case Connected(remote, local) =>
       logger.info("Connected " + remote.getHostName + " " + local.getHostName)
 
-      val handler = context.actorOf(SenzHandler.props(sender))
+      val handler = context.actorOf(SenzHandlerActor.props(sender))
       sender ! Register(handler)
     case CommandFailed(_: Bind) =>
       context stop self

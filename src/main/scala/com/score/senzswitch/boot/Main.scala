@@ -1,7 +1,7 @@
 package com.score.senzswitch.boot
 
 import akka.actor.ActorSystem
-import com.score.senzswitch.actors.SenzListener
+import com.score.senzswitch.actors.SenzListenerActor
 import com.score.senzswitch.components.{CryptoCompImpl, KeyStoreCompImpl}
 import com.score.senzswitch.config.Configuration
 import org.slf4j.LoggerFactory
@@ -20,5 +20,5 @@ object Main extends App with CryptoCompImpl with KeyStoreCompImpl with Configura
 
   // start actor
   implicit val system = ActorSystem("senz")
-  system.actorOf(SenzListener.props, name = "SenzListener")
+  system.actorOf(SenzListenerActor.props, name = "SenzListener")
 }
