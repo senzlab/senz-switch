@@ -1,6 +1,6 @@
 package com.score.senzswitch.actors
 
-import akka.actor.{Actor, ActorRef, Props, Terminated}
+import akka.actor._
 import akka.io.Tcp
 import akka.util.ByteString
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl}
@@ -84,9 +84,22 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         // should be public key sharing
         // store public key, store actor
         name = senz.sender
+        val send = senz.sender
+        val key = senz.attributes.get("#pubkey").get
         keyStore.findSenzieKey(name) match {
+          case Some(SenzKey(`send`, `key`)) =>
+            logger.info(s"Have senzie with name $name and key $key")
+
+            SenzListenerActor.actorRefs.put(name, self)
+
+            // share from already registered senzie
+            val payload = s"DATA #msg REG_ALR @${senz.sender} ^${senz.receiver}"
+            self ! SenzMsg(crypto.sing(payload))
+
+            // start scheduler to PING on every 10 minutes
+            system.scheduler.schedule(10.minutes, 10.minutes, self, SenzMsg(crypto.sing(SenzUtils.getPingSenz(senz.sender, switchName))))
           case Some(SenzKey(_, _)) =>
-            logger.info("Have senzies with name " + name)
+            logger.info(s"Have senzie with name $name")
 
             // user already exists
             // send error
@@ -94,7 +107,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
             val payload = s"DATA #msg REG_FAIL @${senz.sender} ^${senz.receiver}"
             self ! SenzMsg(crypto.sing(payload))
 
-            context.stop(self)
+            //context.stop(self)
+            self ! PoisonPill
           case _ =>
             logger.info("No senzies with name " + name)
 
@@ -113,8 +127,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       case _ =>
         // share senz for other senzie
         // forward senz to receiver
-        logger.info(s"SAHRE from senzie $name")
-        SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
+        logger.info(s"SHARE from senzie $name")
+        if (SenzListenerActor.actorRefs.contains(senz.receiver)) SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
     }
   }
 
@@ -131,31 +145,26 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       case _ =>
         // get senz for other senzie
         // forward senz to receiver
-        SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
+        if (SenzListenerActor.actorRefs.contains(senz.receiver)) SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
     }
   }
 
   def handlePing(senz: Senz) = {
     logger.info(s"PING from senzie $name")
-
-    // store/restore actor
-    name = senz.sender
-    SenzListenerActor.actorRefs.put(name, self)
-    system.scheduler.schedule(10.minutes, 10.minutes, self, SenzMsg(crypto.sing(SenzUtils.getPingSenz(senz.sender, switchName))))
   }
 
   def handleData(senz: Senz, senzMsg: SenzMsg) = {
     logger.info(s"DATA from senzie $name")
 
     // forward senz to receiver
-    SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
+    if (SenzListenerActor.actorRefs.contains(senz.receiver)) SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
   }
 
   def handlePut(senz: Senz, senzMsg: SenzMsg) = {
     logger.info(s"PUT from senzie $name")
 
     // forward senz to receiver
-    SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
+    if (SenzListenerActor.actorRefs.contains(senz.receiver)) SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
   }
 
 }
