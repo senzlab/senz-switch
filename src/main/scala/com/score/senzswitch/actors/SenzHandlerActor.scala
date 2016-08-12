@@ -27,11 +27,11 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
   context watch senderRef
 
   override def preStart() = {
-    logger.info("[_________START ACTOR__________] " + context.self.path)
+    logger.info(s"[_________START ACTOR__________] ${context.self.path}")
   }
 
   override def postStop() = {
-    logger.info("[_________STOP ACTOR__________] " + context.self.path)
+    logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $name")
 
     SenzListenerActor.actorRefs.remove(name)
   }
