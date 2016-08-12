@@ -93,7 +93,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
             SenzListenerActor.actorRefs.put(name, self)
 
             // share from already registered senzie
-            val payload = s"DATA #msg REG_ALR @${senz.sender} ^${senz.receiver}"
+            val payload = s"DATA #msg REG_ALR #pubkey ${keyStore.findSwitchKey.pubKey.get} @${senz.sender} ^${senz.receiver}"
             self ! SenzMsg(crypto.sing(payload))
 
             // start scheduler to PING on every 10 minutes
@@ -118,7 +118,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
             logger.info(s"Registration done of senzie $name")
 
             // reply share done msg
-            val payload = s"DATA #msg REG_DONE @${senz.sender} ^${senz.receiver}"
+            val payload = s"DATA #msg REG_DONE #pubkey ${keyStore.findSwitchKey.pubKey.get} @${senz.sender} ^${senz.receiver}"
             self ! SenzMsg(crypto.sing(payload))
 
             // start scheduler to PING on every 10 minutes
