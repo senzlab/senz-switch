@@ -141,7 +141,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         // should be request for public key of other senzie
         // find senz key and send it back
         val key = keyStore.findSenzieKey(senz.attributes.get("#pubkey").get).get.key
-        val payload = s"DATA #pubkey $key @${senz.sender} ^${senz.receiver}"
+        val payload = s"DATA #pubkey $key #name ${senz.attributes.get("#pubkey").get} @${senz.sender} ^${senz.receiver}"
         self ! SenzMsg(crypto.sing(payload))
       case _ =>
         // get senz for other senzie
