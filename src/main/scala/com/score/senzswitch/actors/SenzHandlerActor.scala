@@ -105,7 +105,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
             // user already exists
             // send error
             // reply share done msg
-            val payload = s"DATA #msg REG_FAIL @${senz.sender} ^${senz.receiver}"
+            val payload = s"DATA #msg REG_FAIL #pubkey ${keyStore.findSwitchKey.pubKey.get} @${senz.sender} ^${senz.receiver}"
             self ! SenzMsg(crypto.sing(payload))
 
             //context.stop(self)
