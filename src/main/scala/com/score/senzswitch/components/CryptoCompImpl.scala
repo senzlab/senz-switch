@@ -55,13 +55,19 @@ trait CryptoCompImpl extends CryptoComp {
     }
 
     override def verify(payload: String, senz: Senz) = {
-      def getSenzieKey(senz: Senz): Array[Byte] = {
-        senz match {
-          case Senz(SenzType.SHARE, _, `switchName`, attr, _) =>
-            new BASE64Decoder().decodeBuffer(attr.get("#pubkey").get)
+      def getSenzieKey(senz: Senz): Option[Array[Byte]] = {
+        keyStore.findSenzieKey(senz.sender) match {
+          case Some(senzKey) =>
+            Some(new BASE64Decoder().decodeBuffer(senzKey.key))
           case _ =>
-            // get public key of senzie
-            new BASE64Decoder().decodeBuffer(keyStore.findSenzieKey(senz.sender).get.key)
+            // no senz key found
+            senz match {
+              case Senz(SenzType.SHARE, _, `switchName`, attr, _) =>
+                Some(new BASE64Decoder().decodeBuffer(attr.get("#pubkey").get))
+              case _ =>
+                // no senzie key
+                None
+            }
         }
       }
 
@@ -70,7 +76,7 @@ trait CryptoCompImpl extends CryptoComp {
 
       // get public key of senzie
       val keyFactory: KeyFactory = KeyFactory.getInstance("RSA")
-      val publicKeySpec: X509EncodedKeySpec = new X509EncodedKeySpec(getSenzieKey(senz))
+      val publicKeySpec: X509EncodedKeySpec = new X509EncodedKeySpec(getSenzieKey(senz).get)
       val publicKey: PublicKey = keyFactory.generatePublic(publicKeySpec)
 
       // verify signature

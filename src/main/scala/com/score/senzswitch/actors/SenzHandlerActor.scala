@@ -75,6 +75,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
       context stop self
     case SenzMsg(data) =>
+      logger.info(s"Senz senz message $data")
       senderRef ! Tcp.Write(ByteString(s"$data\n\r"))
   }
 
