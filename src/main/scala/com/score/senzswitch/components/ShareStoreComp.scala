@@ -8,9 +8,11 @@ trait ShareStoreComp {
   val shareStore: ShareStore
 
   trait ShareStore {
-    def share(attr: Array[String], from: String, to: String)
+    def share(from: String, to: String, attr: String)
 
-    def isShared(attr: String, from: String, to: String)
+    def unshare(from: String, to: String, attr: String)
+
+    def isShared(from: String, to: String, attr: String)
   }
 
 }
