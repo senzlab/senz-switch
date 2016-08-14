@@ -34,6 +34,23 @@ trait ShareStoreCompImpl extends ShareStoreComp {
       coll.update(MongoDBObject("name" -> to), $push("sharing" -> attrBuilder.result()))
     }
 
+    def share(from: String, to: String, attr: List[String]): Boolean = {
+      val coll = senzDb("senzies")
+
+      attr match {
+        case x :: tail =>
+          // update/push
+          val attrBuilder = MongoDBObject.newBuilder
+          attrBuilder += "user" -> from
+          attrBuilder += "attr" -> x
+          coll.update(MongoDBObject("name" -> to), $push("sharing" -> attrBuilder.result()))
+
+          share(from, to, tail)
+        case Nil =>
+          true
+      }
+    }
+
     def unshare(from: String, to: String, attr: String) = {
       val coll = senzDb("senzies")
 
@@ -43,6 +60,24 @@ trait ShareStoreCompImpl extends ShareStoreComp {
       attrBuilder += "attr" -> attr
 
       coll.update(MongoDBObject("name" -> to), $pull("sharing" -> attrBuilder.result()))
+    }
+
+    def unshare(from: String, to: String, attr: List[String]): Boolean = {
+      val coll = senzDb("senzies")
+
+      attr match {
+        case x :: tail =>
+          // update/pull
+          val attrBuilder = MongoDBObject.newBuilder
+          attrBuilder += "user" -> from
+          attrBuilder += "attr" -> x
+          coll.update(MongoDBObject("name" -> to), $pull("sharing" -> attrBuilder.result()))
+
+          // recursively update
+          unshare(from, to, tail)
+        case Nil =>
+          true
+      }
     }
 
     def isShared(from: String, to: String, attr: String) = {
@@ -65,10 +100,10 @@ trait ShareStoreCompImpl extends ShareStoreComp {
       }
     }
 
-    def insert() = {
+    def insert(name: String, key: String) = {
       val zBuilder = MongoDBObject.newBuilder
-      zBuilder += "name" -> "eranga"
-      zBuilder += "key" -> "eranga_key"
+      zBuilder += "name" -> name
+      zBuilder += "key" -> key
       //zBuilder += "sharing" -> MongoDBList(sBuilder1.result(), sBuilder2.result())
       zBuilder += "sharing" -> MongoDBList()
 
@@ -79,10 +114,22 @@ trait ShareStoreCompImpl extends ShareStoreComp {
 
 }
 
-//object Main extends App with ShareStoreCompImpl with Configuration {
-//  //shareStore.insert()
-//
-//  //shareStore.share1("lakmal", "eranga", "lon")
-//  //shareStore.unshare1("lakmal", "eranga", "lon")
-//  shareStore.isShared("lakmal", "eranga", "lon")
-//}
+object Main extends App with ShareStoreCompImpl with Configuration {
+  //shareStore.insert("lambda", "lkey")
+
+  //shareStore.share1("lakmal", "eranga", "lon")
+  //shareStore.unshare1("lakmal", "eranga", "lon")
+  //shareStore.isShared("lakmal", "eranga", "lon")
+
+  val m = Map("AK" -> "Alaska", "AL" -> "Alabama")
+
+  //  m.keySet.toSeq match {
+  //    case Seq(x, _) =>
+  //      println(x)
+  //    case Seq() =>
+  //      println("nill")
+  //  }
+
+  //shareStore.share("lakmal", "lambda", List("msg"))
+  shareStore.unshare("lakmal", "lambda", List("lat", "msg"))
+}
