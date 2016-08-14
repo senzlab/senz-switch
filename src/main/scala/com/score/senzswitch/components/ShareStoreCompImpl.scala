@@ -26,31 +26,23 @@ trait ShareStoreCompImpl extends ShareStoreComp {
     def share(from: String, to: String, attr: String) = {
       val coll = senzDb("senzies")
 
-      // senzie
-      val senzieBuilder = MongoDBObject.newBuilder
-      senzieBuilder += "name" -> to
-
       // update/push
       val attrBuilder = MongoDBObject.newBuilder
       attrBuilder += "user" -> from
       attrBuilder += "attr" -> attr
 
-      coll.update(senzieBuilder.result(), $push("sharing" -> attrBuilder.result()))
+      coll.update(MongoDBObject("name" -> to), $push("sharing" -> attrBuilder.result()))
     }
 
     def unshare(from: String, to: String, attr: String) = {
       val coll = senzDb("senzies")
 
-      // senzie
-      val senzieBuilder = MongoDBObject.newBuilder
-      senzieBuilder += "name" -> to
-
       // update/push
       val attrBuilder = MongoDBObject.newBuilder
       attrBuilder += "user" -> from
       attrBuilder += "attr" -> attr
 
-      coll.update(senzieBuilder.result(), $pull("sharing" -> attrBuilder.result()))
+      coll.update(MongoDBObject("name" -> to), $pull("sharing" -> attrBuilder.result()))
     }
 
     def isShared(from: String, to: String, attr: String) = {
@@ -88,12 +80,6 @@ trait ShareStoreCompImpl extends ShareStoreComp {
 }
 
 //object Main extends App with ShareStoreCompImpl with Configuration {
-//  //val s = SenzParser.parse("SHARE #acc #amnt #key 4.34 #la $key ja @era ^ban digisg")
-//  //println(SenzParser.compose(s))
-//  //shareStore.share(Array("eranga", "her"), "sdfs", "wer")
-//  //shareStore.isShared("at", "sdf", "sdf")
-//
-//
 //  //shareStore.insert()
 //
 //  //shareStore.share1("lakmal", "eranga", "lon")
