@@ -1,7 +1,5 @@
 package com.score.senzswitch.utils
 
-import com.score.senzswitch.components.ShareStoreCompImpl
-import com.score.senzswitch.config.Configuration
 import com.score.senzswitch.protocols.{Senz, SenzType}
 
 /**
@@ -79,9 +77,9 @@ object SenzParser {
 
 }
 
-object Main extends App with ShareStoreCompImpl with Configuration {
-  //val s = SenzParser.parse("SHARE #acc #amnt #key 4.34 #la $key ja @era ^ban digisg")
-  //println(SenzParser.compose(s))
-  //shareStore.share(Array("eranga", "her"), "sdfs", "wer")
-  shareStore.isShared("at", "sdf", "sdf")
-}
+//object Main extends App with ShareStoreCompImpl with Configuration {
+//  //val s = SenzParser.parse("SHARE #acc #amnt #key 4.34 #la $key ja @era ^ban digisg")
+//  //println(SenzParser.compose(s))
+//  //shareStore.share(Array("eranga", "her"), "sdfs", "wer")
+//  shareStore.isShared("at", "sdf", "sdf")
+//}

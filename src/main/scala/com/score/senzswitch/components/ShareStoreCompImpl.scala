@@ -87,16 +87,16 @@ trait ShareStoreCompImpl extends ShareStoreComp {
 
 }
 
-object Main extends App with ShareStoreCompImpl with Configuration {
-  //val s = SenzParser.parse("SHARE #acc #amnt #key 4.34 #la $key ja @era ^ban digisg")
-  //println(SenzParser.compose(s))
-  //shareStore.share(Array("eranga", "her"), "sdfs", "wer")
-  //shareStore.isShared("at", "sdf", "sdf")
-
-
-  //shareStore.insert()
-
-  //shareStore.share1("lakmal", "eranga", "lon")
-  //shareStore.unshare1("lakmal", "eranga", "lon")
-  shareStore.isShared("lakmal", "eranga", "lon")
-}
+//object Main extends App with ShareStoreCompImpl with Configuration {
+//  //val s = SenzParser.parse("SHARE #acc #amnt #key 4.34 #la $key ja @era ^ban digisg")
+//  //println(SenzParser.compose(s))
+//  //shareStore.share(Array("eranga", "her"), "sdfs", "wer")
+//  //shareStore.isShared("at", "sdf", "sdf")
+//
+//
+//  //shareStore.insert()
+//
+//  //shareStore.share1("lakmal", "eranga", "lon")
+//  //shareStore.unshare1("lakmal", "eranga", "lon")
+//  shareStore.isShared("lakmal", "eranga", "lon")
+//}
