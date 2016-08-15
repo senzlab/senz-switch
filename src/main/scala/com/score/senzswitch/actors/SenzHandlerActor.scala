@@ -175,10 +175,10 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
     logger.info(s"DATA from senzie $name")
 
     senz.attributes.get("#stream") match {
-      case Some("ON") =>
+      case Some("on") =>
         logger.info(s"Streaming ON from ${senz.sender} to ${senz.receiver} ")
         senzStream = Some(SenzStream(enabled = true, senz.receiver))
-      case Some("OFF") =>
+      case Some("off") =>
         logger.info(s"Streaming OFF from ${senz.sender} to ${senz.receiver} ")
         senzStream = Some(SenzStream(enabled = false, senz.receiver))
       case _ =>
