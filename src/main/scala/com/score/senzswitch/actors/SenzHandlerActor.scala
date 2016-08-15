@@ -70,6 +70,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         }
       } catch {
         case e: Throwable =>
+          logger.info("Senz parse error, check for Streaming")
+
           // check for streaming
           senzStream match {
             case Some(SenzStream(true, receiver)) =>
@@ -92,7 +94,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
       context stop self
     case SenzMsg(data) =>
-      logger.info(s"Senz senz message $data")
+      logger.info(s"Send senz message $data to user $name")
       senderRef ! Tcp.Write(ByteString(s"$data\n\r"))
   }
 
