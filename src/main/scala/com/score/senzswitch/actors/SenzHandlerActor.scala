@@ -24,6 +24,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
   var name: String = _
 
+  var stream: Boolean = _
+
   context watch senderRef
 
   override def preStart() = {

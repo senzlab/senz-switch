@@ -114,22 +114,22 @@ trait ShareStoreCompImpl extends ShareStoreComp {
 
 }
 
-object Main extends App with ShareStoreCompImpl with Configuration {
-  //shareStore.insert("lambda", "lkey")
-
-  //shareStore.share1("lakmal", "eranga", "lon")
-  //shareStore.unshare1("lakmal", "eranga", "lon")
-  //shareStore.isShared("lakmal", "eranga", "lon")
-
-  val m = Map("AK" -> "Alaska", "AL" -> "Alabama")
-
-  //  m.keySet.toSeq match {
-  //    case Seq(x, _) =>
-  //      println(x)
-  //    case Seq() =>
-  //      println("nill")
-  //  }
-
-  //shareStore.share("lakmal", "lambda", List("msg"))
-  shareStore.unshare("lakmal", "lambda", List("lat", "msg"))
-}
+//object Main extends App with ShareStoreCompImpl with Configuration {
+//  //shareStore.insert("lambda", "lkey")
+//
+//  //shareStore.share1("lakmal", "eranga", "lon")
+//  //shareStore.unshare1("lakmal", "eranga", "lon")
+//  //shareStore.isShared("lakmal", "eranga", "lon")
+//
+//  val m = Map("AK" -> "Alaska", "AL" -> "Alabama")
+//
+//  //  m.keySet.toSeq match {
+//  //    case Seq(x, _) =>
+//  //      println(x)
+//  //    case Seq() =>
+//  //      println("nill")
+//  //  }
+//
+//  //shareStore.share("lakmal", "lambda", List("msg"))
+//  shareStore.unshare("lakmal", "lambda", List("lat", "msg"))
+//}
