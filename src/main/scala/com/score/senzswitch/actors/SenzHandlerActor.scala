@@ -24,7 +24,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
   var name: String = _
 
-  var stream: Option[Stream] = _
+  var senzStream: Option[SenzStream] = _
 
   context watch senderRef
 
@@ -43,54 +43,46 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       val senzMsg = SenzMsg(data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", ""))
       logger.info("Senz received " + senzMsg)
 
-      // handle stream
-      stream match {
-        case Some(Stream(true, sender, receiver)) =>
-          logger.info("Streaming ON")
+      try {
+        val senz = SenzParser.parseSenz(senzMsg.data)
+        if (crypto.verify(senzMsg.data, senz)) {
+          logger.info("Signature verified")
 
-          // ignore parsing errors while streaming
-          try {
-            val senz = SenzParser.parseSenz(senzMsg.data)
-            senz match {
-              case Senz(SenzType.DATA, _, _, attr, _) =>
-                handleData(senz, senzMsg)
-              case _ =>
-                if (SenzListenerActor.actorRefs.contains(receiver)) SenzListenerActor.actorRefs.get(receiver).get ! senzMsg
-            }
-          } catch {
-            case e: Throwable =>
-              logger.info("Ignore errors on streaming " + e.toString)
-              if (SenzListenerActor.actorRefs.contains(receiver)) SenzListenerActor.actorRefs.get(receiver).get ! senzMsg
+          senz match {
+            case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
+              handleShare(senz, senzMsg)
+            case Senz(SenzType.PING, sender, receiver, attr, signature) =>
+              handlePing(senz)
+            case Senz(SenzType.GET, sender, receiver, attr, signature) =>
+              handleGet(senz, senzMsg)
+            case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
+              handleData(senz, senzMsg)
+            case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
+              handlePut(senz, senzMsg)
           }
-        case _ =>
-          logger.info("OFF Streaming/NOT Streaming")
+        } else {
+          logger.error("Signature verification fail")
 
-          // parse and validate signature
-          val senz = SenzParser.parseSenz(senzMsg.data)
-          if (crypto.verify(senzMsg.data, senz)) {
-            logger.info("Signature verified")
+          val payload = s"DATA #msg SIG_FAIL @${senz.sender} ^${senz.receiver}"
+          self ! SenzMsg(crypto.sing(payload))
 
-            senz match {
-              case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
-                handleShare(senz, senzMsg)
-              case Senz(SenzType.PING, sender, receiver, attr, signature) =>
-                handlePing(senz)
-              case Senz(SenzType.GET, sender, receiver, attr, signature) =>
-                handleGet(senz, senzMsg)
-              case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
-                handleData(senz, senzMsg)
-              case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
-                handlePut(senz, senzMsg)
-            }
-          } else {
-            logger.error("Signature verification fail")
+          context stop self
+        }
+      } catch {
+        case e: Throwable =>
+          // check for streaming
+          senzStream match {
+            case Some(SenzStream(true, receiver)) =>
+              logger.info("Streaming ON")
+              if (SenzListenerActor.actorRefs.contains(receiver)) SenzListenerActor.actorRefs.get(receiver).get ! senzMsg
+            case _ =>
+              logger.info("Streaming OFF/NOT Streaming")
 
-            val payload = s"DATA #msg SIG_FAIL @${senz.sender} ^${senz.receiver}"
-            self ! SenzMsg(crypto.sing(payload))
-
-            context stop self
+              // this is an error, rethrow exception
+              throw e
           }
       }
+
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
 
@@ -185,10 +177,10 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
     senz.attributes.get("#stream") match {
       case Some("ON") =>
         logger.info(s"Streaming ON from ${senz.sender} to ${senz.receiver} ")
-        stream = Some(Stream(enabled = true, senz.sender, senz.receiver))
+        senzStream = Some(SenzStream(enabled = true, senz.receiver))
       case Some("OFF") =>
         logger.info(s"Streaming OFF from ${senz.sender} to ${senz.receiver} ")
-        stream = Some(Stream(enabled = false, senz.sender, senz.receiver))
+        senzStream = Some(SenzStream(enabled = false, senz.receiver))
       case _ =>
         logger.info(s"Not streaming ")
     }
