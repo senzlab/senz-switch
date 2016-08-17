@@ -26,75 +26,28 @@ trait ShareStoreCompImpl extends ShareStoreComp {
     def share(from: String, to: String, attr: String) = {
       val coll = senzDb(collName)
 
-      // update/push
-      val attrBuilder = MongoDBObject.newBuilder
-      attrBuilder += "user" -> from
-      attrBuilder += "attr" -> attr
-
-      coll.update(MongoDBObject("name" -> to), $push("sharing" -> attrBuilder.result()))
-    }
-
-    def share(from: String, to: String, attr: List[String]): Boolean = {
-      val coll = senzDb(collName)
-
-      attr match {
-        case x :: tail =>
-          // update/push
-          val attrBuilder = MongoDBObject.newBuilder
-          attrBuilder += "user" -> from
-          attrBuilder += "attr" -> x
-          coll.update(MongoDBObject("name" -> to), $push("sharing" -> attrBuilder.result()))
-
-          share(from, to, tail)
-        case Nil =>
-          true
-      }
+      coll.update(MongoDBObject("name" -> to), $addToSet(attr -> from))
+      coll.update(MongoDBObject("name" -> from), $addToSet(to -> attr))
     }
 
     def unshare(from: String, to: String, attr: String) = {
       val coll = senzDb(collName)
 
-      // update/push
-      val attrBuilder = MongoDBObject.newBuilder
-      attrBuilder += "user" -> from
-      attrBuilder += "attr" -> attr
-
-      coll.update(MongoDBObject("name" -> to), $pull("sharing" -> attrBuilder.result()))
-    }
-
-    def unshare(from: String, to: String, attr: List[String]): Boolean = {
-      val coll = senzDb(collName)
-
-      attr match {
-        case x :: tail =>
-          // update/pull
-          val attrBuilder = MongoDBObject.newBuilder
-          attrBuilder += "user" -> from
-          attrBuilder += "attr" -> x
-          coll.update(MongoDBObject("name" -> to), $pull("sharing" -> attrBuilder.result()))
-
-          // recursively update
-          unshare(from, to, tail)
-        case Nil =>
-          true
-      }
+      coll.update(MongoDBObject("name" -> to), $pull(attr -> from))
+      coll.update(MongoDBObject("name" -> from), $pull(to -> attr))
     }
 
     def isShared(from: String, to: String, attr: String) = {
       val coll = senzDb(collName)
 
-      val sharingBuilder = MongoDBObject.newBuilder
-      sharingBuilder += "user" -> from
-      sharingBuilder += "attr" -> attr
-
-      val matcher = MongoDBObject("$in" -> MongoDBList(sharingBuilder.result()))
-      val query = MongoDBObject("name" -> to, "sharing" -> matcher)
+      val matcher = MongoDBObject("$in" -> MongoDBList(attr))
+      val query = MongoDBObject("name" -> from, to -> matcher)
 
       coll.findOne(query) match {
         case Some(obj) =>
           println(obj.expand[String]("name"))
           println(obj.expand[String]("key"))
-          println(obj.expand[MongoDBList]("sharing"))
+          println(obj.expand[MongoDBList](to))
         case _ =>
           println("not shared...")
       }
@@ -105,7 +58,7 @@ trait ShareStoreCompImpl extends ShareStoreComp {
       zBuilder += "name" -> name
       zBuilder += "key" -> key
       //zBuilder += "sharing" -> MongoDBList(sBuilder1.result(), sBuilder2.result())
-      zBuilder += "sharing" -> MongoDBList()
+      //zBuilder += "sharing" -> MongoDBList()
 
       val coll = senzDb(collName)
       coll.insert(zBuilder.result())
@@ -114,22 +67,23 @@ trait ShareStoreCompImpl extends ShareStoreComp {
 
 }
 
-//object Main extends App with ShareStoreCompImpl with Configuration {
-//  //shareStore.insert("lambda", "lkey")
-//
-//  //shareStore.share1("lakmal", "eranga", "lon")
-//  //shareStore.unshare1("lakmal", "eranga", "lon")
-//  //shareStore.isShared("lakmal", "eranga", "lon")
-//
-//  val m = Map("AK" -> "Alaska", "AL" -> "Alabama")
-//
-//  //  m.keySet.toSeq match {
-//  //    case Seq(x, _) =>
-//  //      println(x)
-//  //    case Seq() =>
-//  //      println("nill")
-//  //  }
-//
-//  //shareStore.share("lakmal", "lambda", List("msg"))
-//  shareStore.unshare("lakmal", "lambda", List("lat", "msg"))
-//}
+object Main extends App with ShareStoreCompImpl with Configuration {
+  //shareStore.insert("scala", "lkey")
+  //shareStore.insert("haskell", "lkey")
+
+  //shareStore.sha("scala", "haskell", "lat")
+  shareStore.share("scala", "haskell", "lat")
+  //shareStore.unsha("scala", "haskell", "lat")
+  shareStore.isShared("scala", "haskell", "lat")
+
+  //shareStore.share("eranga", "lambda", "lat")
+  //shareStore.sha("herath", "lambda", "lot")
+  //shareStore.isSha("herath", "lambda", "lot")
+
+  //shareStore.share1("lakmal", "eranga", "lon")
+  //shareStore.unshare1("lakmal", "eranga", "lon")
+  //shareStore.isShared("lakmal", "eranga", "lon")
+
+  //shareStore.share("lakmal", "lambda", List("msg"))
+  //shareStore.unshare("lakmal", "lambda", List("lat", "msg"))
+}
