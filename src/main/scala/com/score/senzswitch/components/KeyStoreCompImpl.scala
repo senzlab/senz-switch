@@ -1,5 +1,7 @@
 package com.score.senzswitch.components
 
+import java.io.{File, PrintWriter}
+
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoCollection
 import com.score.senzswitch.config.Configuration
@@ -22,6 +24,34 @@ trait KeyStoreCompImpl extends KeyStoreComp {
   class KeyStoreImpl extends KeyStore {
 
     import KeyStoreImpl._
+
+    override def putSwitchKey(switchKey: SwitchKey) = {
+      // save public key
+      val publicKeyStream = new PrintWriter(new File(publicKeyLocation))
+      publicKeyStream.write(switchKey.pubKey.get)
+      publicKeyStream.flush()
+      publicKeyStream.close()
+
+      // save private key
+      val privateKeyStream = new PrintWriter(new File(publicKeyLocation))
+      privateKeyStream.write(switchKey.privateKey.get)
+      privateKeyStream.flush()
+      privateKeyStream.close()
+    }
+
+    override def getSwitchKey: SwitchKey = {
+      // pubkey
+      val pubKeySource = scala.io.Source.fromFile(publicKeyLocation)
+      val pubKey = pubKeySource.mkString
+      pubKeySource.close()
+
+      // private key
+      val privateKeySource = scala.io.Source.fromFile(privateKeyLocation)
+      val privateKey = privateKeySource.mkString
+      privateKeySource.close()
+
+      SwitchKey(Some(pubKey), Some(privateKey))
+    }
 
     override def saveSwitchKey(switchKey: SwitchKey) = {
       // save switch key in db

@@ -11,6 +11,10 @@ trait KeyStoreComp {
 
   trait KeyStore {
 
+    def putSwitchKey(switchKey: SwitchKey)
+
+    def getSwitchKey: SwitchKey
+
     def saveSwitchKey(switchKey: SwitchKey)
 
     def findSwitchKey: SwitchKey

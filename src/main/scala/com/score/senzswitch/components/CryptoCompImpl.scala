@@ -20,7 +20,7 @@ trait CryptoCompImpl extends CryptoComp {
 
     override def initKeys() = {
       // only save if keys not exists in db
-      keyStore.findSwitchKey match {
+      keyStore.getSwitchKey match {
         case SwitchKey(Some(pubKey), Some(privateKye)) =>
         // already existing keys
         case _ =>
