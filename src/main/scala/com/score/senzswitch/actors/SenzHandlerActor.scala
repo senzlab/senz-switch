@@ -48,6 +48,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         if (crypto.verify(senzMsg.data, senz)) {
           logger.info("Signature verified")
 
+          SenzListenerActor.actorRefs.put(name, self)
+
           senz match {
             case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
               handleShare(senz, senzMsg)
@@ -95,7 +97,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       context stop self
     case SenzMsg(data) =>
       logger.info(s"Send senz message $data to user $name")
-      senderRef ! Tcp.Write(ByteString(s"$data\n\r"))
+      senderRef ! Tcp.Write(ByteString(s"$data"))
   }
 
   def handleShare(senz: Senz, senzMsg: SenzMsg) = {
@@ -109,8 +111,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         keyStore.findSenzieKey(name) match {
           case Some(SenzKey(`send`, `key`)) =>
             logger.info(s"Have senzie with name $name and key $key")
-
-            SenzListenerActor.actorRefs.put(name, self)
 
             // share from already registered senzie
             val payload = s"DATA #msg REG_ALR #pubkey ${keyStore.findSwitchKey.pubKey.get} @${senz.sender} ^${senz.receiver}"
@@ -133,7 +133,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
             logger.info("No senzies with name " + name)
 
             keyStore.saveSenzieKey(SenzKey(senz.sender, senz.attributes.get("#pubkey").get))
-            SenzListenerActor.actorRefs.put(name, self)
 
             logger.info(s"Registration done of senzie $name")
 
