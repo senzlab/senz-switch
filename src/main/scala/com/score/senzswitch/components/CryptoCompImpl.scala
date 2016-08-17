@@ -21,8 +21,8 @@ trait CryptoCompImpl extends CryptoComp {
     override def initKeys() = {
       // only save if keys not exists in db
       keyStore.getSwitchKey match {
-        case SwitchKey(Some(pubKey), Some(privateKye)) =>
-        // already existing keys
+        case Some(SwitchKey(_, _)) =>
+          // already existing keys
         case _ =>
           // no keys
           // generate public private key pair
@@ -33,7 +33,7 @@ trait CryptoCompImpl extends CryptoComp {
           // save key
           val pubKey = new BASE64Encoder().encode(keyPair.getPublic.getEncoded).replaceAll("\n", "").replaceAll("\r", "")
           val privateKey = new BASE64Encoder().encode(keyPair.getPrivate.getEncoded).replaceAll("\n", "").replaceAll("\r", "")
-          keyStore.saveSwitchKey(SwitchKey(Some(pubKey), Some(privateKey)))
+          keyStore.putSwitchKey(SwitchKey(Some(pubKey), Some(privateKey)))
       }
     }
 

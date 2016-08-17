@@ -13,7 +13,7 @@ trait KeyStoreComp {
 
     def putSwitchKey(switchKey: SwitchKey)
 
-    def getSwitchKey: SwitchKey
+    def getSwitchKey: Option[SwitchKey]
 
     def saveSwitchKey(switchKey: SwitchKey)
 

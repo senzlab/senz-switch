@@ -26,6 +26,12 @@ trait KeyStoreCompImpl extends KeyStoreComp {
     import KeyStoreImpl._
 
     override def putSwitchKey(switchKey: SwitchKey) = {
+      // first create .keys directory
+      val dir: File = new File(keysDir)
+      if (!dir.exists) {
+        dir.mkdir
+      }
+
       // save public key
       val publicKeyStream = new PrintWriter(new File(publicKeyLocation))
       publicKeyStream.write(switchKey.pubKey.get)
@@ -39,18 +45,23 @@ trait KeyStoreCompImpl extends KeyStoreComp {
       privateKeyStream.close()
     }
 
-    override def getSwitchKey: SwitchKey = {
-      // pubkey
-      val pubKeySource = scala.io.Source.fromFile(publicKeyLocation)
-      val pubKey = pubKeySource.mkString
-      pubKeySource.close()
+    override def getSwitchKey: Option[SwitchKey] = {
+      try {
+        // pubkey
+        val pubKeySource = scala.io.Source.fromFile(publicKeyLocation)
+        val pubKey = pubKeySource.mkString
+        pubKeySource.close()
 
-      // private key
-      val privateKeySource = scala.io.Source.fromFile(privateKeyLocation)
-      val privateKey = privateKeySource.mkString
-      privateKeySource.close()
+        // private key
+        val privateKeySource = scala.io.Source.fromFile(privateKeyLocation)
+        val privateKey = privateKeySource.mkString
+        privateKeySource.close()
 
-      SwitchKey(Some(pubKey), Some(privateKey))
+        Some(SwitchKey(Some(pubKey), Some(privateKey)))
+      } catch {
+        case e: Throwable =>
+          None
+      }
     }
 
     override def saveSwitchKey(switchKey: SwitchKey) = {
