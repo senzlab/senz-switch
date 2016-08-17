@@ -3,7 +3,7 @@ package com.score.senzswitch.actors
 import akka.actor._
 import akka.io.Tcp
 import akka.util.ByteString
-import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl}
+import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
 import com.score.senzswitch.config.Configuration
 import com.score.senzswitch.protocols._
 import com.score.senzswitch.utils.{SenzParser, SenzUtils}
@@ -16,7 +16,7 @@ object SenzHandlerActor {
   def props(senderRef: ActorRef) = Props(new SenzHandlerActor(senderRef))
 }
 
-class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl {
+class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl with ShareStoreCompImpl {
 
   import context._
 
@@ -48,6 +48,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         if (crypto.verify(senzMsg.data, senz)) {
           logger.info("Signature verified")
 
+          name = senz.sender
           SenzListenerActor.actorRefs.put(name, self)
 
           senz match {
@@ -97,7 +98,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       context stop self
     case SenzMsg(data) =>
       logger.info(s"Send senz message $data to user $name")
-      senderRef ! Tcp.Write(ByteString(s"$data"))
+      senderRef ! Tcp.Write(ByteString(s"$data\n\r"))
   }
 
   def handleShare(senz: Senz, senzMsg: SenzMsg) = {
@@ -105,7 +106,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       case `switchName` =>
         // should be public key sharing
         // store public key, store actor
-        name = senz.sender
         val send = senz.sender
         val key = senz.attributes.get("#pubkey").get
         keyStore.findSenzieKey(name) match {
@@ -147,7 +147,12 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         // share senz for other senzie
         // forward senz to receiver
         logger.info(s"SHARE from senzie $name")
-        if (SenzListenerActor.actorRefs.contains(senz.receiver)) SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
+        if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
+          // mark as shared attributes
+          shareStore.share(senz.sender, senz.receiver, senz.attributes.keySet.toList)
+
+          SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
+        }
     }
   }
 
@@ -194,7 +199,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
     logger.info(s"PUT from senzie $name")
 
     // forward senz to receiver
-    if (SenzListenerActor.actorRefs.contains(senz.receiver)) SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
+    if (SenzListenerActor.actorRefs.contains(senz.receiver) && shareStore.isShared(senz.receiver, senz.sender, senz.attributes.keySet.toList))
+      SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
   }
 
 }
