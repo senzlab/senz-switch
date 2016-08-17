@@ -24,7 +24,7 @@ trait ShareStoreCompImpl extends ShareStoreComp {
     import ShareStoreImpl._
 
     def share(from: String, to: String, attr: String) = {
-      val coll = senzDb("senzies")
+      val coll = senzDb(collName)
 
       // update/push
       val attrBuilder = MongoDBObject.newBuilder
@@ -35,7 +35,7 @@ trait ShareStoreCompImpl extends ShareStoreComp {
     }
 
     def share(from: String, to: String, attr: List[String]): Boolean = {
-      val coll = senzDb("senzies")
+      val coll = senzDb(collName)
 
       attr match {
         case x :: tail =>
@@ -52,7 +52,7 @@ trait ShareStoreCompImpl extends ShareStoreComp {
     }
 
     def unshare(from: String, to: String, attr: String) = {
-      val coll = senzDb("senzies")
+      val coll = senzDb(collName)
 
       // update/push
       val attrBuilder = MongoDBObject.newBuilder
@@ -63,7 +63,7 @@ trait ShareStoreCompImpl extends ShareStoreComp {
     }
 
     def unshare(from: String, to: String, attr: List[String]): Boolean = {
-      val coll = senzDb("senzies")
+      val coll = senzDb(collName)
 
       attr match {
         case x :: tail =>
@@ -81,7 +81,7 @@ trait ShareStoreCompImpl extends ShareStoreComp {
     }
 
     def isShared(from: String, to: String, attr: String) = {
-      val coll = senzDb("senzies")
+      val coll = senzDb(collName)
 
       val sharingBuilder = MongoDBObject.newBuilder
       sharingBuilder += "user" -> from
@@ -107,7 +107,7 @@ trait ShareStoreCompImpl extends ShareStoreComp {
       //zBuilder += "sharing" -> MongoDBList(sBuilder1.result(), sBuilder2.result())
       zBuilder += "sharing" -> MongoDBList()
 
-      val coll = senzDb("senzies")
+      val coll = senzDb(collName)
       coll.insert(zBuilder.result())
     }
   }

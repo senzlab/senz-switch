@@ -38,7 +38,7 @@ trait KeyStoreCompImpl extends KeyStoreComp {
       publicKeyStream.close()
 
       // save private key
-      val privateKeyStream = new PrintWriter(new File(publicKeyLocation))
+      val privateKeyStream = new PrintWriter(new File(privateKeyLocation))
       privateKeyStream.write(switchKey.privateKey)
       privateKeyStream.flush()
       privateKeyStream.close()
@@ -65,14 +65,14 @@ trait KeyStoreCompImpl extends KeyStoreComp {
 
     override def saveSenzieKey(senzKey: SenzKey) = {
       // save key in db
-      val coll = senzDb("senz_keys")
+      val coll = senzDb(collName)
       val query = MongoDBObject("name" -> senzKey.name, "key" -> senzKey.key)
       coll.insert(query)
     }
 
     override def findSenzieKey(name: String): Option[SenzKey] = {
       // read key from db
-      val coll = senzDb("senz_keys")
+      val coll = senzDb(collName)
       val query = MongoDBObject("name" -> name)
       coll.findOne(query) match {
         case Some(obj) =>

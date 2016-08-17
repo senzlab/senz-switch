@@ -21,6 +21,7 @@ trait Configuration {
   lazy val mongoHost = Try(config.getString("db.mongo.host")).getOrElse("dev.localhost")
   lazy val mongoPort = Try(config.getInt("db.mongo.port")).getOrElse(27017)
   lazy val dbName = Try(config.getString("db.mongo.db-name")).getOrElse("senz")
+  lazy val collName = Try(config.getString("db.mongo.coll-name")).getOrElse("senzies")
 
   // keys config
   lazy val keysDir = Try(config.getString("keys.dir")).getOrElse(".keys")
