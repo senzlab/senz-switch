@@ -22,7 +22,7 @@ trait CryptoCompImpl extends CryptoComp {
       // only save if keys not exists in db
       keyStore.getSwitchKey match {
         case Some(SwitchKey(_, _)) =>
-          // already existing keys
+        // already existing keys
         case _ =>
           // no keys
           // generate public private key pair
@@ -33,15 +33,15 @@ trait CryptoCompImpl extends CryptoComp {
           // save key
           val pubKey = new BASE64Encoder().encode(keyPair.getPublic.getEncoded).replaceAll("\n", "").replaceAll("\r", "")
           val privateKey = new BASE64Encoder().encode(keyPair.getPrivate.getEncoded).replaceAll("\n", "").replaceAll("\r", "")
-          keyStore.putSwitchKey(SwitchKey(Some(pubKey), Some(privateKey)))
+          keyStore.putSwitchKey(SwitchKey(pubKey, privateKey))
       }
     }
 
     override def sing(payload: String) = {
       // find private key
-      val switchKey = keyStore.findSwitchKey
+      val switchKey = keyStore.getSwitchKey.get
       val keyFactory: KeyFactory = KeyFactory.getInstance("RSA")
-      val privateKeySpec: PKCS8EncodedKeySpec = new PKCS8EncodedKeySpec(new BASE64Decoder().decodeBuffer(switchKey.privateKey.get))
+      val privateKeySpec: PKCS8EncodedKeySpec = new PKCS8EncodedKeySpec(new BASE64Decoder().decodeBuffer(switchKey.privateKey))
       val privateKey: PrivateKey = keyFactory.generatePrivate(privateKeySpec)
 
       // sign the payload

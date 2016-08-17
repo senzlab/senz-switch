@@ -6,7 +6,7 @@ object KeyType extends Enumeration {
   val PUBLIC_KEY, PRIVATE_KEY = Value
 }
 
-case class SwitchKey(pubKey: Option[String], privateKey: Option[String])
+case class SwitchKey(pubKey: String, privateKey: String)
 
 case class SenzKey(name: String, key: String)
 

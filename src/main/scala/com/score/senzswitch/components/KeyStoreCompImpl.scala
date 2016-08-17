@@ -3,7 +3,6 @@ package com.score.senzswitch.components
 import java.io.{File, PrintWriter}
 
 import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.MongoCollection
 import com.score.senzswitch.config.Configuration
 import com.score.senzswitch.protocols.{SenzKey, SwitchKey}
 
@@ -34,13 +33,13 @@ trait KeyStoreCompImpl extends KeyStoreComp {
 
       // save public key
       val publicKeyStream = new PrintWriter(new File(publicKeyLocation))
-      publicKeyStream.write(switchKey.pubKey.get)
+      publicKeyStream.write(switchKey.pubKey)
       publicKeyStream.flush()
       publicKeyStream.close()
 
       // save private key
       val privateKeyStream = new PrintWriter(new File(publicKeyLocation))
-      privateKeyStream.write(switchKey.privateKey.get)
+      privateKeyStream.write(switchKey.privateKey)
       privateKeyStream.flush()
       privateKeyStream.close()
     }
@@ -57,34 +56,11 @@ trait KeyStoreCompImpl extends KeyStoreComp {
         val privateKey = privateKeySource.mkString
         privateKeySource.close()
 
-        Some(SwitchKey(Some(pubKey), Some(privateKey)))
+        Some(SwitchKey(pubKey, privateKey))
       } catch {
         case e: Throwable =>
           None
       }
-    }
-
-    override def saveSwitchKey(switchKey: SwitchKey) = {
-      // save switch key in db
-      val coll = senzDb("switch_keys")
-      coll.insert(MongoDBObject("name" -> "pub_key", "key" -> switchKey.pubKey.get))
-      coll.insert(MongoDBObject("name" -> "private_key", "key" -> switchKey.privateKey.get))
-    }
-
-    override def findSwitchKey: SwitchKey = {
-      def getKey(coll: MongoCollection, name: String) = {
-        val query = MongoDBObject("name" -> name)
-        coll.findOne(query) match {
-          case Some(obj) =>
-            // have matching key
-            Some(obj.getAs[String]("key").get)
-          case None =>
-            None
-        }
-      }
-
-      val coll = senzDb("switch_keys")
-      SwitchKey(getKey(coll, "pub_key"), getKey(coll, "private_key"))
     }
 
     override def saveSenzieKey(senzKey: SenzKey) = {

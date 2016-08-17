@@ -15,10 +15,6 @@ trait KeyStoreComp {
 
     def getSwitchKey: Option[SwitchKey]
 
-    def saveSwitchKey(switchKey: SwitchKey)
-
-    def findSwitchKey: SwitchKey
-
     def saveSenzieKey(senzKey: SenzKey)
 
     def findSenzieKey(name: String): Option[SenzKey]
