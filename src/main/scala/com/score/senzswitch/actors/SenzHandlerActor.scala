@@ -2,6 +2,7 @@ package com.score.senzswitch.actors
 
 import akka.actor._
 import akka.io.Tcp
+import akka.io.Tcp.{CommandFailed, Write}
 import akka.util.ByteString
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
 import com.score.senzswitch.config.Configuration
@@ -43,50 +44,45 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       val senzMsg = SenzMsg(data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", ""))
       logger.info("Senz received " + senzMsg)
 
-      try {
-        val senz = SenzParser.parseSenz(senzMsg.data)
-        if (crypto.verify(senzMsg.data, senz)) {
-          logger.info("Signature verified")
+      val senz = SenzParser.parseSenz(senzMsg.data)
 
-          name = senz.sender
-          SenzListenerActor.actorRefs.put(name, self)
+      // check for streaming and verify senz
+      senzStream match {
+        case Some(SenzStream(true, _)) =>
+          // streaming ON
+          logger.info("Streaming ON")
+        case _ =>
+          // streaming off
+          // verify senz
+          if (crypto.verify(senzMsg.data, senz)) {
+            logger.error("Signature verified")
+            name = senz.sender
+            SenzListenerActor.actorRefs.put(name, self)
+          } else {
+            logger.error("Signature verification fail")
 
-          senz match {
-            case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
-              handleShare(senz, senzMsg)
-            case Senz(SenzType.PING, sender, receiver, attr, signature) =>
-              handlePing(senz)
-            case Senz(SenzType.GET, sender, receiver, attr, signature) =>
-              handleGet(senz, senzMsg)
-            case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
-              handleData(senz, senzMsg)
-            case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
-              handlePut(senz, senzMsg)
-          }
-        } else {
-          logger.error("Signature verification fail")
+            val payload = s"DATA #msg SIG_FAIL @${senz.sender} ^${senz.receiver}"
+            self ! SenzMsg(crypto.sing(payload))
 
-          val payload = s"DATA #msg SIG_FAIL @${senz.sender} ^${senz.receiver}"
-          self ! SenzMsg(crypto.sing(payload))
-
-          context stop self
-        }
-      } catch {
-        case e: Throwable =>
-          logger.info("Senz parse error, check for Streaming")
-
-          // check for streaming
-          senzStream match {
-            case Some(SenzStream(true, receiver)) =>
-              logger.info("Streaming ON")
-              if (SenzListenerActor.actorRefs.contains(receiver)) SenzListenerActor.actorRefs.get(receiver).get ! senzMsg
-            case _ =>
-              logger.info("Streaming OFF/NOT Streaming")
-
-              // this is an error, rethrow exception
-              throw e
+            context stop self
           }
       }
+
+      senz match {
+        case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
+          handleShare(senz, senzMsg)
+        case Senz(SenzType.PING, sender, receiver, attr, signature) =>
+          handlePing(senz)
+        case Senz(SenzType.GET, sender, receiver, attr, signature) =>
+          handleGet(senz, senzMsg)
+        case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
+          handleData(senz, senzMsg)
+        case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
+          handlePut(senz, senzMsg)
+      }
+
+    case CommandFailed(w: Write) =>
+      logger.error("Failed to write data to socket")
 
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
@@ -169,7 +165,12 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       case _ =>
         // get senz for other senzie
         // forward senz to receiver
-        if (SenzListenerActor.actorRefs.contains(senz.receiver)) SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
+        if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
+          logger.info(s"Store containes actor with " + senz.receiver)
+          SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
+        } else {
+          logger.error(s"Store NOT containes actor with " + senz.receiver)
+        }
     }
   }
 
@@ -180,6 +181,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
   def handleData(senz: Senz, senzMsg: SenzMsg) = {
     logger.info(s"DATA from senzie $name")
 
+    // handle streaming
     senz.attributes.get("#stream") match {
       case Some("on") =>
         logger.info(s"Streaming ON from ${senz.sender} to ${senz.receiver} ")
@@ -192,7 +194,12 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
     }
 
     // forward senz to receiver
-    if (SenzListenerActor.actorRefs.contains(senz.receiver)) SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
+    if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
+      logger.info(s"Store containes actor with " + senz.receiver)
+      SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
+    } else {
+      logger.error(s"Store NOT containes actor with " + senz.receiver)
+    }
   }
 
   def handlePut(senz: Senz, senzMsg: SenzMsg) = {
