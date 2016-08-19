@@ -7,7 +7,11 @@ object SenzType extends Enumeration {
 
 import com.score.senzswitch.protocols.SenzType._
 
+case class Msg(data: String)
+
 case class SenzMsg(data: String)
+
+case class SenzData(data: String)
 
 case class Senz(senzType: SenzType, sender: String, receiver: String, attributes: Map[String, String], signature: Option[String])
 

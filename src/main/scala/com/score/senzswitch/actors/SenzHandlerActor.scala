@@ -27,6 +27,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
   var senzStream: Option[SenzStream] = _
 
+  var msgBuffer: StringBuffer = new StringBuffer()
+
   context watch senderRef
 
   override def preStart() = {
@@ -41,10 +43,37 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
   override def receive = {
     case Tcp.Received(data) =>
-      val senzMsg = SenzMsg(data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", ""))
-      logger.info("Senz received " + senzMsg)
+      val msg = Msg(data.decodeString("UTF-8"))
+      logger.info("Senz received " + msg)
 
-      val senz = SenzParser.parseSenz(senzMsg.data)
+      self ! msg
+    case CommandFailed(w: Write) =>
+      logger.error("Failed to write data to socket")
+
+    case Tcp.PeerClosed =>
+      logger.info("Peer Closed")
+
+      context stop self
+    case Terminated(`senderRef`) =>
+      logger.info("Actor terminated " + senderRef.path)
+
+      context stop self
+
+    case Msg(data) =>
+      msgBuffer.append(data)
+      if (msgBuffer.toString.contains("\n")) {
+        // this is the senz
+        val senz = msgBuffer.toString.split("\n")(0)
+
+        // keep rest in the buffer
+        msgBuffer.replace(0, senz.length + 1, "")
+
+        // forward senz to handle
+        self ! SenzData(senz)
+      }
+
+    case SenzData(data) =>
+      val senz = SenzParser.parseSenz(data)
 
       // check for streaming and verify senz
       senzStream match {
@@ -54,7 +83,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         case _ =>
           // streaming off
           // verify senz
-          if (crypto.verify(senzMsg.data, senz)) {
+          if (crypto.verify(data, senz)) {
             logger.error("Signature verified")
             name = senz.sender
             SenzListenerActor.actorRefs.put(name, self)
@@ -70,28 +99,17 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
       senz match {
         case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
-          handleShare(senz, senzMsg)
+          handleShare(senz, SenzMsg(data))
         case Senz(SenzType.PING, sender, receiver, attr, signature) =>
           handlePing(senz)
         case Senz(SenzType.GET, sender, receiver, attr, signature) =>
-          handleGet(senz, senzMsg)
+          handleGet(senz, SenzMsg(data))
         case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
-          handleData(senz, senzMsg)
+          handleData(senz, SenzMsg(data))
         case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
-          handlePut(senz, senzMsg)
+          handlePut(senz, SenzMsg(data))
       }
 
-    case CommandFailed(w: Write) =>
-      logger.error("Failed to write data to socket")
-
-    case Tcp.PeerClosed =>
-      logger.info("Peer Closed")
-
-      context stop self
-    case Terminated(`senderRef`) =>
-      logger.info("Actor terminated " + senderRef.path)
-
-      context stop self
     case SenzMsg(data) =>
       logger.info(s"Send senz message $data to user $name")
       senderRef ! Tcp.Write(ByteString(s"$data\n\r"))
