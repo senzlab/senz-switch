@@ -25,9 +25,9 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
   var name: String = _
 
-  var senzStream: Option[SenzStream] = _
+  var streaming: Boolean = _
 
-  var msgBuffer: StringBuffer = new StringBuffer()
+  var senzBuffer: StringBuffer = new StringBuffer()
 
   context watch senderRef
 
@@ -46,44 +46,20 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       val msg = Msg(data.decodeString("UTF-8"))
       logger.info("Senz received " + msg)
 
-      self ! msg
-    case CommandFailed(w: Write) =>
-      logger.error("Failed to write data to socket")
-
-    case Tcp.PeerClosed =>
-      logger.info("Peer Closed")
-
-      context stop self
-    case Terminated(`senderRef`) =>
-      logger.info("Actor terminated " + senderRef.path)
-
-      context stop self
-
-    case Msg(data) =>
-      msgBuffer.append(data)
-      if (msgBuffer.toString.contains("\n")) {
+      senzBuffer.append(msg.data)
+      if (senzBuffer.toString.contains("\n")) {
         // this is the senz
-        val senz = msgBuffer.toString.split("\n")(0)
+        val senzData = senzBuffer.toString.split("\n")(0)
 
         // keep rest in the buffer
-        msgBuffer.replace(0, senz.length + 1, "")
+        senzBuffer.replace(0, senzData.length + 1, "")
 
-        // forward senz to handle
-        self ! SenzData(senz)
-      }
+        val senz = SenzParser.parseSenz(senzData)
 
-    case SenzData(data) =>
-      val senz = SenzParser.parseSenz(data)
-
-      // check for streaming and verify senz
-      senzStream match {
-        case Some(SenzStream(true, _)) =>
-          // streaming ON
-          logger.info("Streaming ON")
-        case _ =>
+        if (!streaming) {
           // streaming off
           // verify senz
-          if (crypto.verify(data, senz)) {
+          if (crypto.verify(senzData, senz)) {
             logger.error("Signature verified")
             name = senz.sender
             SenzListenerActor.actorRefs.put(name, self)
@@ -95,21 +71,34 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
             context stop self
           }
-      }
+        }
 
-      senz match {
-        case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
-          handleShare(senz, SenzMsg(data))
-        case Senz(SenzType.PING, sender, receiver, attr, signature) =>
-          handlePing(senz)
-        case Senz(SenzType.GET, sender, receiver, attr, signature) =>
-          handleGet(senz, SenzMsg(data))
-        case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
-          handleData(senz, SenzMsg(data))
-        case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
-          handlePut(senz, SenzMsg(data))
+        senz match {
+          case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
+            handleShare(senz, SenzMsg(senzData))
+          case Senz(SenzType.PING, sender, receiver, attr, signature) =>
+            handlePing(senz)
+          case Senz(SenzType.GET, sender, receiver, attr, signature) =>
+            handleGet(senz, SenzMsg(senzData))
+          case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
+            handleData(senz, SenzMsg(senzData))
+          case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
+            handlePut(senz, SenzMsg(senzData))
+        }
       }
+    case CommandFailed(w: Write) =>
+      logger.error("Failed to write data to socket")
 
+    case Tcp.PeerClosed =>
+      logger.info("Peer Closed")
+
+      context stop self
+    case Terminated(`senderRef`) =>
+      logger.info("Actor terminated " + senderRef.path)
+
+      context stop self
+    case SenzStream(data) =>
+      logger.info("Remain in stream " + data)
     case SenzMsg(data) =>
       logger.info(s"Send senz message $data to user $name")
       senderRef ! Tcp.Write(ByteString(s"$data\n\r"))
@@ -184,10 +173,10 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         // get senz for other senzie
         // forward senz to receiver
         if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
-          logger.info(s"Store containes actor with " + senz.receiver)
+          logger.info(s"Store contains actor with " + senz.receiver)
           SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
         } else {
-          logger.error(s"Store NOT containes actor with " + senz.receiver)
+          logger.error(s"Store NOT contains actor with " + senz.receiver)
         }
     }
   }
@@ -203,17 +192,22 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
     senz.attributes.get("#stream") match {
       case Some("on") =>
         logger.info(s"Streaming ON from ${senz.sender} to ${senz.receiver} ")
-        senzStream = Some(SenzStream(enabled = true, senz.receiver))
+        streaming = true
       case Some("off") =>
         logger.info(s"Streaming OFF from ${senz.sender} to ${senz.receiver} ")
-        senzStream = Some(SenzStream(enabled = false, senz.receiver))
+        streaming = false
+
+        // check weather buffer has some remaining data
+        if (!senzBuffer.toString.isEmpty) {
+          self ! SenzStream(senzBuffer.toString)
+        }
       case _ =>
         logger.info(s"Not streaming ")
     }
 
     // forward senz to receiver
     if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
-      logger.info(s"Store containes actor with " + senz.receiver)
+      logger.info(s"Store contains actor with " + senz.receiver)
       SenzListenerActor.actorRefs.get(senz.receiver).get ! senzMsg
     } else {
       logger.error(s"Store NOT containes actor with " + senz.receiver)
