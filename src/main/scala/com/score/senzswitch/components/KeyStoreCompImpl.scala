@@ -16,6 +16,11 @@ trait KeyStoreCompImpl extends KeyStoreComp {
   val keyStore = new KeyStoreImpl()
 
   object KeyStoreImpl {
+    val BEGIN_PUBLIC_KEY = "-----BEGIN PUBLIC KEY-----"
+    val END_PUBLIC_KEY = "-----END PUBLIC KEY-----"
+    val BEGIN_PRIVATE_KEY = "-----BEGIN RSA PRIVATE KEY-----"
+    val END_PRIVATE_KEY = "-----END RSA PRIVATE KEY-----"
+
     val client = MongoClient(mongoHost, mongoPort)
     val senzDb = client(dbName)
   }
@@ -33,13 +38,17 @@ trait KeyStoreCompImpl extends KeyStoreComp {
 
       // save public key
       val publicKeyStream = new PrintWriter(new File(publicKeyLocation))
-      publicKeyStream.write(switchKey.pubKey)
+      publicKeyStream.write(s"$BEGIN_PUBLIC_KEY\n")
+      publicKeyStream.write(s"${switchKey.pubKey}\n")
+      publicKeyStream.write(END_PUBLIC_KEY)
       publicKeyStream.flush()
       publicKeyStream.close()
 
       // save private key
       val privateKeyStream = new PrintWriter(new File(privateKeyLocation))
-      privateKeyStream.write(switchKey.privateKey)
+      privateKeyStream.write(s"$BEGIN_PRIVATE_KEY\n")
+      privateKeyStream.write(s"${switchKey.privateKey}\n")
+      privateKeyStream.write(BEGIN_PRIVATE_KEY)
       privateKeyStream.flush()
       privateKeyStream.close()
     }
@@ -48,12 +57,12 @@ trait KeyStoreCompImpl extends KeyStoreComp {
       try {
         // pubkey
         val pubKeySource = scala.io.Source.fromFile(publicKeyLocation)
-        val pubKey = pubKeySource.mkString
+        val pubKey = pubKeySource.mkString.replaceAll(BEGIN_PUBLIC_KEY, "").replaceAll(END_PUBLIC_KEY, "").replaceAll("'\n", "")
         pubKeySource.close()
 
         // private key
         val privateKeySource = scala.io.Source.fromFile(privateKeyLocation)
-        val privateKey = privateKeySource.mkString
+        val privateKey = privateKeySource.mkString.replaceAll(BEGIN_PRIVATE_KEY, "").replaceAll(END_PRIVATE_KEY, "").replaceAll("'\n", "")
         privateKeySource.close()
 
         Some(SwitchKey(pubKey, privateKey))
