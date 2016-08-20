@@ -46,46 +46,56 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       val msg = Msg(data.decodeString("UTF-8"))
       logger.info("Senz received " + msg)
 
-      senzBuffer.append(msg.data)
-      if (senzBuffer.toString.contains("\n")) {
-        // this is the senz
-        val senzData = senzBuffer.toString.split("\n")(0)
+      if (!streaming) {
+        val senz = SenzParser.parseSenz(msg.data)
 
-        // keep rest in the buffer
-        senzBuffer.replace(0, senzData.length + 1, "")
+        // streaming off
+        // verify senz
+        if (crypto.verify(msg.data, senz)) {
+          logger.error("Signature verified")
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
 
-        val senz = SenzParser.parseSenz(senzData)
+          senz match {
+            case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
+              handleShare(senz, SenzMsg(msg.data))
+            case Senz(SenzType.PING, sender, receiver, attr, signature) =>
+              handlePing(senz)
+            case Senz(SenzType.GET, sender, receiver, attr, signature) =>
+              handleGet(senz, SenzMsg(msg.data))
+            case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
+              handleData(senz, SenzMsg(msg.data))
+            case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
+              handlePut(senz, SenzMsg(msg.data))
+          }
+        } else {
+          logger.error("Signature verification fail")
 
-        if (!streaming) {
-          // streaming off
-          // verify senz
-          if (crypto.verify(senzData, senz)) {
-            logger.error("Signature verified")
-            name = senz.sender
-            SenzListenerActor.actorRefs.put(name, self)
-          } else {
-            logger.error("Signature verification fail")
+          val payload = s"DATA #msg SIG_FAIL @${senz.sender} ^${senz.receiver}"
+          self ! SenzMsg(crypto.sing(payload))
 
-            val payload = s"DATA #msg SIG_FAIL @${senz.sender} ^${senz.receiver}"
-            self ! SenzMsg(crypto.sing(payload))
+          context stop self
+        }
+      } else {
+        senzBuffer.append(msg.data)
 
-            context stop self
+        logger.info("Buffer --- " + senzBuffer.toString)
+        if (senzBuffer.toString.contains("\n")) {
+          // this is the senz
+          // keep rest in the buffer
+          val senzData = senzBuffer.toString.split("\n")(0)
+          senzBuffer.replace(0, senzData.length + 1, "")
+
+          val senz = SenzParser.parseSenz(msg.data)
+          SenzListenerActor.actorRefs.get(senz.receiver).get ! SenzMsg(senzData)
+
+          if (senzData.contains("#off")) {
+            streaming = false
+            senzBuffer = new StringBuffer()
           }
         }
-
-        senz match {
-          case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
-            handleShare(senz, SenzMsg(senzData))
-          case Senz(SenzType.PING, sender, receiver, attr, signature) =>
-            handlePing(senz)
-          case Senz(SenzType.GET, sender, receiver, attr, signature) =>
-            handleGet(senz, SenzMsg(senzData))
-          case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
-            handleData(senz, SenzMsg(senzData))
-          case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
-            handlePut(senz, SenzMsg(senzData))
-        }
       }
+
     case CommandFailed(w: Write) =>
       logger.error("Failed to write data to socket")
 
