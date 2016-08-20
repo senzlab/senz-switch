@@ -4,6 +4,7 @@ import akka.actor._
 import akka.io.Tcp
 import akka.io.Tcp.{CommandFailed, Write}
 import akka.util.ByteString
+import com.score.senzswitch.actors.StreamHandlerActor.{EndStream, InitStream, SenzStream}
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
 import com.score.senzswitch.config.Configuration
 import com.score.senzswitch.protocols._
@@ -27,7 +28,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
   var streaming: Boolean = _
 
-  var senzBuffer: StringBuffer = new StringBuffer()
+  var streamActor: ActorRef = _
 
   context watch senderRef
 
@@ -77,22 +78,13 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
           context stop self
         }
       } else {
-        senzBuffer.append(msg.data)
+        logger.info("Streaming ON")
+        streamActor ! SenzStream(msg.data)
 
-        logger.info("Buffer --- " + senzBuffer.toString)
-        if (senzBuffer.toString.contains("\n")) {
-          // this is the senz
-          // keep rest in the buffer
-          val senzData = senzBuffer.toString.split("\n")(0)
-          senzBuffer.replace(0, senzData.length + 1, "")
-
-          val senz = SenzParser.parseSenz(msg.data)
-          SenzListenerActor.actorRefs.get(senz.receiver).get ! SenzMsg(senzData)
-
-          if (senzData.contains("#off")) {
-            streaming = false
-            senzBuffer = new StringBuffer()
-          }
+        // off streaming
+        if (msg.data.contains("#stream off")) {
+          streaming = false
+          streamActor ! EndStream
         }
       }
 
@@ -107,8 +99,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       logger.info("Actor terminated " + senderRef.path)
 
       context stop self
-    case SenzStream(data) =>
-      logger.info("Remain in stream " + data)
     case SenzMsg(data) =>
       logger.info(s"Send senz message $data to user $name")
       senderRef ! Tcp.Write(ByteString(s"$data\n\r"))
@@ -203,14 +193,12 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       case Some("on") =>
         logger.info(s"Streaming ON from ${senz.sender} to ${senz.receiver} ")
         streaming = true
+        streamActor = context.actorOf(StreamHandlerActor.props(SenzListenerActor.actorRefs.get(senz.receiver).get))
+        streamActor ! InitStream
       case Some("off") =>
         logger.info(s"Streaming OFF from ${senz.sender} to ${senz.receiver} ")
         streaming = false
-
-        // check weather buffer has some remaining data
-        if (!senzBuffer.toString.isEmpty) {
-          self ! SenzStream(senzBuffer.toString)
-        }
+        streamActor ! EndStream
       case _ =>
         logger.info(s"Not streaming ")
     }
