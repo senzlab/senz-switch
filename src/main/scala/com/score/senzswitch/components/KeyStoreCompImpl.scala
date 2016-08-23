@@ -57,12 +57,12 @@ trait KeyStoreCompImpl extends KeyStoreComp {
       try {
         // pubkey
         val pubKeySource = scala.io.Source.fromFile(publicKeyLocation)
-        val pubKey = pubKeySource.mkString.replaceAll(BEGIN_PUBLIC_KEY, "").replaceAll(END_PUBLIC_KEY, "").replaceAll("'\n", "")
+        val pubKey = pubKeySource.mkString.replaceAll(BEGIN_PUBLIC_KEY, "").replaceAll(END_PUBLIC_KEY, "").replaceAll("\n", "")
         pubKeySource.close()
 
         // private key
         val privateKeySource = scala.io.Source.fromFile(privateKeyLocation)
-        val privateKey = privateKeySource.mkString.replaceAll(BEGIN_PRIVATE_KEY, "").replaceAll(END_PRIVATE_KEY, "").replaceAll("'\n", "")
+        val privateKey = privateKeySource.mkString.replaceAll(BEGIN_PRIVATE_KEY, "").replaceAll(END_PRIVATE_KEY, "").replaceAll("\n", "")
         privateKeySource.close()
 
         Some(SwitchKey(pubKey, privateKey))
