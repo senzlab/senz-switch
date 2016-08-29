@@ -1,7 +1,7 @@
 package com.score.senzswitch.actors
 
 import akka.actor.{Actor, ActorRef, Props}
-import com.score.senzswitch.protocols.SenzMsg
+import com.score.senzswitch.protocols.Msg
 import org.slf4j.LoggerFactory
 
 object StreamHandlerActor {
@@ -13,6 +13,7 @@ object StreamHandlerActor {
   case class EndStream()
 
   def props(ref: ActorRef) = Props(new StreamHandlerActor(ref))
+
 }
 
 class StreamHandlerActor(ref: ActorRef) extends Actor {
@@ -42,7 +43,7 @@ class StreamHandlerActor(ref: ActorRef) extends Actor {
       logger.info("end stream")
       val streams = senzBuffer.toString.split("\n")
       for (stream <- streams) {
-        ref ! SenzMsg(stream.trim)
+        ref ! Msg(stream.trim)
       }
 
       context stop self

@@ -1,77 +1,87 @@
 package com.score.senzswitch.actors
 
-import akka.actor._
-import akka.io.Tcp
-import akka.io.Tcp.Write
-import akka.util.ByteString
-import com.score.senzswitch.actors.SenzBufferActor.Buf
-import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
+import akka.actor.{Actor, ActorRef, PoisonPill, Props}
+import com.score.senzswitch.components.{CryptoCompImpl, KeyStoreCompImpl}
 import com.score.senzswitch.config.Configuration
 import com.score.senzswitch.protocols._
-import com.score.senzswitch.utils.SenzUtils
+import com.score.senzswitch.utils.{SenzParser, SenzUtils}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
 
-object SenzHandlerActor {
-  def props(senderRef: ActorRef) = Props(new SenzHandlerActor(senderRef))
+object SenzBufferActor {
+
+  def props(handlerRef: ActorRef) = Props(new SenzBufferActor(handlerRef))
+
+  case class Buf(date: String)
+
 }
 
-class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl with ShareStoreCompImpl {
+class SenzBufferActor(handlerRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl with CryptoCompImpl {
 
+  import SenzBufferActor._
   import context._
 
   def logger = LoggerFactory.getLogger(this.getClass)
 
-  var name: String = _
+  var buffer: StringBuffer = new StringBuffer()
 
-  var buffRef: ActorRef = _
+  val senzBuffer = new SenzBuffer(self)
 
   var streaming: Boolean = _
 
   var streamRef: ActorRef = _
 
-  context watch senderRef
+  var name: String = _
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
 
-    buffRef = context.actorOf(SenzBufferActor.props(self))
+    senzBuffer.start()
   }
 
   override def postStop() = {
-    logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $name")
+    logger.info(s"[_________STOP ACTOR__________] ${context.self.path}")
 
     SenzListenerActor.actorRefs.remove(name)
+    senzBuffer.shutdown()
   }
 
   override def receive = {
-    case Tcp.Received(data) =>
-      val buf = Buf(data.decodeString("UTF-8"))
-      logger.info("Senz received " + buf)
+    case Buf(data) =>
+      buffer.append(data)
+      logger.info(s"Buf to buffer ${buffer.toString}")
 
-      buffRef ! buf
-    case Tcp.CommandFailed(w: Write) =>
-      logger.error("Failed to write data to socket")
-    case Tcp.PeerClosed =>
-      logger.info("Peer Closed")
-      context stop self
-    case _: Tcp.ConnectionClosed =>
-      logger.error("Remote host connection lost")
-      context stop self
-    case Tcp.Aborted =>
-      logger.error("Remote host Aborted")
-    case Tcp.ConfirmedClosed =>
-      logger.error("Remote host Confirmed colse")
-    case Terminated(`senderRef`) =>
-      logger.info("Actor terminated " + senderRef.path)
-      context stop self
-    case SenzMsg(senz: Senz, data: String) =>
-      logger.info(s"SenzMsg received")
+    case SenzMsg(senz, msg) =>
+      logger.info(s"SenzMsg from buffer $senz")
 
-    case Msg(data) =>
-      logger.info(s"Send senz message $data to user $name")
-      senderRef ! Tcp.Write(ByteString(s"$data\n\r"))
+      senz match {
+        case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
+
+          handleShare(SenzMsg(senz, msg))
+        case Senz(SenzType.GET, sender, receiver, attr, signature) =>
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
+
+          handleGet(SenzMsg(senz, msg))
+        case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
+
+          handleData(SenzMsg(senz, msg))
+        case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
+
+          handlePut(SenzMsg(senz, msg))
+        case Senz(SenzType.PING, sender, receiver, attr, signature) =>
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
+
+          handlePing(SenzMsg(senz, msg))
+      }
   }
 
   def handleShare(senzMsg: SenzMsg) = {
@@ -88,10 +98,10 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
             // share from already registered senzie
             val payload = s"DATA #msg REG_ALR #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
-            self ! Msg(crypto.sing(payload))
+            handlerRef ! Msg(crypto.sing(payload))
 
             // start scheduler to PING on every 10 minutes
-            system.scheduler.schedule(10.minutes, 10.minutes, self, Msg(crypto.sing(SenzUtils.getPingSenz(senz.sender, switchName))))
+            system.scheduler.schedule(10.minutes, 10.minutes, handlerRef, Msg(crypto.sing(SenzUtils.getPingSenz(senz.sender, switchName))))
           case Some(SenzKey(_, _)) =>
             logger.info(s"Have senzie with name $name")
 
@@ -99,10 +109,10 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
             // send error
             // reply share done msg
             val payload = s"DATA #msg REG_FAIL #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
-            self ! Msg(crypto.sing(payload))
+            handlerRef ! Msg(crypto.sing(payload))
 
             //context.stop(self)
-            self ! PoisonPill
+            handlerRef ! PoisonPill
           case _ =>
             logger.info("No senzies with name " + name)
 
@@ -112,10 +122,10 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
             // reply share done msg
             val payload = s"DATA #msg REG_DONE #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
-            self ! Msg(crypto.sing(payload))
+            handlerRef ! Msg(crypto.sing(payload))
 
             // start scheduler to PING on every 10 minutes
-            system.scheduler.schedule(10.minutes, 10.minutes, self, Msg(crypto.sing(SenzUtils.getPingSenz(senz.sender, switchName))))
+            system.scheduler.schedule(10.minutes, 10.minutes, handlerRef, Msg(crypto.sing(SenzUtils.getPingSenz(senz.sender, switchName))))
         }
       case _ =>
         // share senz for other senzie
@@ -140,7 +150,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         // find senz key and send it back
         val key = keyStore.findSenzieKey(senz.attributes.get("#pubkey").get).get.key
         val payload = s"DATA #pubkey $key #name ${senz.attributes.get("#pubkey").get} @${senz.sender} ^${senz.receiver}"
-        self ! Msg(crypto.sing(payload))
+        handlerRef ! Msg(crypto.sing(payload))
       case _ =>
         // get senz for other senzie
         // forward senz to receiver
@@ -193,5 +203,29 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
     logger.info(s"PING from senzie ${senz.sender}")
   }
 
+  protected class SenzBuffer(bufferRef: ActorRef) extends Thread {
+    var isRunning = true
+
+    def shutdown() = {
+      logger.info(s"Shutdown SenzBuffer")
+      isRunning = false
+    }
+
+    override def run() = {
+      logger.info(s"Start SenzBuffer")
+
+      while (isRunning) {
+        val index = buffer.indexOf("\n")
+        if (index != -1) {
+          val msg = buffer.substring(0, index)
+          buffer.delete(0, index)
+          logger.info(s"Got senz from buffer $msg")
+
+          val senz = SenzParser.parseSenz(msg)
+          bufferRef ! SenzMsg(senz, msg)
+        }
+      }
+    }
+  }
 
 }

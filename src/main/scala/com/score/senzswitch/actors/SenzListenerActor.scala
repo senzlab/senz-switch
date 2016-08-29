@@ -40,14 +40,15 @@ class SenzListenerActor extends Actor with Configuration {
   }
 
   override def receive: Receive = {
-    case Bound(localAddress) =>
+    case Tcp.Bound(localAddress) =>
       logger.info("Bound connection to host " + localAddress.getHostName)
-    case Connected(remote, local) =>
+    case Tcp.Connected(remote, local) =>
       logger.info(s"Client connected from ${remote.getHostName}")
 
       val handler = context.actorOf(SenzHandlerActor.props(sender))
-      sender ! Register(handler)
-    case CommandFailed(_: Bind) =>
+      sender ! Tcp.Register(handler)
+    case Tcp.CommandFailed(_: Bind) =>
+      logger.error("Bind failed")
       context stop self
   }
 }
