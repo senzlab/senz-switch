@@ -2,7 +2,7 @@ package com.score.senzswitch.actors
 
 import akka.actor._
 import akka.io.Tcp
-import akka.io.Tcp.Write
+import akka.io.Tcp.{ResumeWriting, Write}
 import akka.util.ByteString
 import com.score.senzswitch.actors.SenzBufferActor.Buf
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
@@ -53,6 +53,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       buffRef ! buf
     case Tcp.CommandFailed(w: Write) =>
       logger.error("Failed to write data to socket")
+      senderRef ! ResumeWriting
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
       context stop self
@@ -66,8 +67,36 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
     case Terminated(`senderRef`) =>
       logger.info("Actor terminated " + senderRef.path)
       context stop self
-    case SenzMsg(senz: Senz, data: String) =>
-      logger.info(s"SenzMsg received")
+    case SenzMsg(senz: Senz, msg: String) =>
+      logger.info(s"SenzMsg received $msg")
+
+      senz match {
+        case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
+
+          handleShare(SenzMsg(senz, msg))
+        case Senz(SenzType.GET, sender, receiver, attr, signature) =>
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
+
+          handleGet(SenzMsg(senz, msg))
+        case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
+
+          handleData(SenzMsg(senz, msg))
+        case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
+
+          handlePut(SenzMsg(senz, msg))
+        case Senz(SenzType.PING, sender, receiver, attr, signature) =>
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
+
+          handlePing(SenzMsg(senz, msg))
+      }
 
     case Msg(data) =>
       logger.info(s"Send senz message $data to user $name")
