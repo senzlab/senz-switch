@@ -33,6 +33,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
 
   context watch senderRef
 
+  val cancellable = system.scheduler.schedule(10.minute, 10.minutes, self, Ping)
+
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
 
@@ -43,6 +45,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
     logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $name")
 
     SenzListenerActor.actorRefs.remove(name)
+    cancellable.cancel()
   }
 
   override def receive = {
@@ -96,6 +99,14 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
           SenzListenerActor.actorRefs.put(name, self)
 
           handlePing(SenzMsg(senz, msg))
+      }
+    case Ping =>
+      if (name != null && name.nonEmpty) {
+        logger.info(s"PING message to user $name")
+        val ping = crypto.sing(SenzUtils.getPingSenz(name, switchName))
+        senderRef ! Tcp.Write(ByteString(s"$ping\n\r"))
+      } else {
+        logger.error("Cannot send PING, no name assigned")
       }
 
     case Msg(data) =>
