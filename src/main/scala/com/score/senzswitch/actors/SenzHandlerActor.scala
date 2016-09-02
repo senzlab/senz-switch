@@ -2,7 +2,7 @@ package com.score.senzswitch.actors
 
 import akka.actor._
 import akka.io.Tcp
-import akka.io.Tcp.{ResumeWriting, Write}
+import akka.io.Tcp.Write
 import akka.util.ByteString
 import com.score.senzswitch.actors.SenzBufferActor.Buf
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration._
 
 object SenzHandlerActor {
-  def props(senderRef: ActorRef) = Props(new SenzHandlerActor(senderRef))
+  def props(senderRef: ActorRef) = Props(classOf[SenzHandlerActor], senderRef)
 }
 
 class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl with ShareStoreCompImpl {
@@ -56,7 +56,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       buffRef ! buf
     case Tcp.CommandFailed(w: Write) =>
       logger.error("Failed to write data to socket")
-      senderRef ! ResumeWriting
+    //senderRef ! ResumeWriting
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
       context stop self

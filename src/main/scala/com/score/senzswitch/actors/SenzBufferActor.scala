@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 
 object SenzBufferActor {
 
-  def props(handlerRef: ActorRef) = Props(new SenzBufferActor(handlerRef))
+  def props(handlerRef: ActorRef) = Props(classOf[SenzBufferActor], handlerRef)
 
   case class Buf(date: String)
 
