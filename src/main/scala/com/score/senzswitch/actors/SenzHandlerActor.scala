@@ -2,7 +2,7 @@ package com.score.senzswitch.actors
 
 import akka.actor._
 import akka.io.Tcp
-import akka.io.Tcp.Write
+import akka.io.Tcp.{Event, Write}
 import akka.util.ByteString
 import com.score.senzswitch.actors.SenzBufferActor.Buf
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
@@ -14,11 +14,15 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration._
 
 object SenzHandlerActor {
+
+  case object SenzAck extends Event
+
   def props(senderRef: ActorRef) = Props(classOf[SenzHandlerActor], senderRef)
 }
 
 class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl with ShareStoreCompImpl {
 
+  import SenzHandlerActor._
   import context._
 
   def logger = LoggerFactory.getLogger(this.getClass)
@@ -32,6 +36,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
   var streamRef: ActorRef = _
 
   context watch senderRef
+
+  context.system.eventStream.subscribe(self, classOf[DeadLetter])
 
   val cancellable = system.scheduler.schedule(10.minute, 10.minutes, self, Ping)
 
@@ -49,8 +55,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
   }
 
   override def receive = {
-    case Tcp.Received(data) =>
-      val buf = Buf(data.decodeString("UTF-8"))
+    case Tcp.Received(senzIn) =>
+      val buf = Buf(senzIn.decodeString("UTF-8"))
       logger.info("Senz received " + buf)
 
       buffRef ! buf
@@ -65,8 +71,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       context stop self
     case Tcp.Aborted =>
       logger.error("Remote host Aborted")
-    case Tcp.ConfirmedClosed =>
-      logger.error("Remote host Confirmed colse")
     case Terminated(`senderRef`) =>
       logger.info("Actor terminated " + senderRef.path)
       context stop self
@@ -110,8 +114,34 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       }
 
     case Msg(data) =>
-      logger.info(s"Send senz message $data to user $name")
-      senderRef ! Tcp.Write(ByteString(s"$data\n\r"))
+      logger.info(s"Send senz message $data to user $name with SenzAck")
+      senderRef ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
+
+      context.become({
+        case Tcp.Received(senzIn) =>
+          val buf = Buf(senzIn.decodeString("UTF-8"))
+          logger.info("Senz received while writing " + buf)
+
+          buffRef ! buf
+        case SenzAck =>
+          logger.info("Acked for write")
+
+          context.unbecome()
+        case Tcp.PeerClosed =>
+          logger.info("Peer Closed")
+          context stop self
+      }, discardOld = false)
+
+    case DeadLetter(msg, from, to) =>
+      // dead letter
+      logger.error("Dead letter " + msg + "from " + from + "to " + to)
+      msg match {
+        case Msg(data) =>
+          logger.info("Resend message")
+          from.tell(msg, to)
+        case _ =>
+          logger.info("No need to resend message")
+      }
   }
 
   def handleShare(senzMsg: SenzMsg) = {

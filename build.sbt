@@ -6,12 +6,13 @@ scalaVersion := "2.11.8"
 
 libraryDependencies ++= {
 
-  val akkaVersion       = "2.3.9"
+  val akkaVersion       = "2.4.2"
   val cassandraVersion  = "3.0.0"
 
   Seq(
     "com.typesafe.akka"       %% "akka-actor"               % akkaVersion,
     "com.typesafe.akka"       %% "akka-slf4j"               % akkaVersion,
+    "com.typesafe.akka"       %% "akka-stream"              % akkaVersion,
     "com.datastax.cassandra"  % "cassandra-driver-core"     % cassandraVersion,
     "org.slf4j"               % "slf4j-api"                 % "1.7.5",
     "ch.qos.logback"          % "logback-classic"           % "1.0.9",

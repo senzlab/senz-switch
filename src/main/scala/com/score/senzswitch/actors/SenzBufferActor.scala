@@ -54,6 +54,7 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with Configuration wit
           handlerRef ! SenzMsg(senz, msg)
         }
       }
+    case "ACK" =>
 
       // reinitialize read
       self ! ReadBuf
