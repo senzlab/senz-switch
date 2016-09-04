@@ -25,24 +25,36 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with Configuration wit
 
   var buffer: StringBuffer = new StringBuffer()
 
-  var name: String = _
+  val senzBuffer = new SenzBuffer
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
-    self ! ReadBuf
+    senzBuffer.start()
   }
 
   override def postStop() = {
     logger.info(s"[_________STOP ACTOR__________] ${context.self.path}")
+    senzBuffer.shutdown()
   }
 
   override def receive = {
     case Buf(data) =>
       buffer.append(data)
       logger.info(s"Buf to buffer ${buffer.toString}")
-    case ReadBuf =>
-      //logger.info(s"ReadBuf")
-      if (!buffer.toString.isEmpty) {
+  }
+
+  protected class SenzBuffer extends Thread {
+    var isRunning = true
+
+    def shutdown() = {
+      logger.info(s"Shutdown SenzBuffer")
+      isRunning = false
+    }
+
+    override def run() = {
+      logger.info(s"Start SenzBuffer")
+
+      while (isRunning) {
         val index = buffer.indexOf("\n")
         if (index != -1) {
           val msg = buffer.substring(0, index)
@@ -54,10 +66,7 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with Configuration wit
           handlerRef ! SenzMsg(senz, msg)
         }
       }
-    case "ACK" =>
-
-      // reinitialize read
-      self ! ReadBuf
+    }
   }
 
 }

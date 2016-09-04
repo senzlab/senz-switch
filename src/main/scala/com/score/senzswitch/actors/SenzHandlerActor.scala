@@ -4,7 +4,7 @@ import akka.actor._
 import akka.io.Tcp
 import akka.io.Tcp.{Event, Write}
 import akka.util.ByteString
-import com.score.senzswitch.actors.SenzBufferActor.Buf
+import com.score.senzswitch.actors.SenzBufferActor.{ReadBuf, Buf}
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
 import com.score.senzswitch.config.Configuration
 import com.score.senzswitch.protocols._
@@ -112,36 +112,15 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       } else {
         logger.error("Cannot send PING, no name assigned")
       }
-
     case Msg(data) =>
       logger.info(s"Send senz message $data to user $name with SenzAck")
       senderRef ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
-
-      context.become({
-        case Tcp.Received(senzIn) =>
-          val buf = Buf(senzIn.decodeString("UTF-8"))
-          logger.info("Senz received while writing " + buf)
-
-          buffRef ! buf
-        case SenzAck =>
-          logger.info("Acked for write")
-
-          context.unbecome()
-        case Tcp.PeerClosed =>
-          logger.info("Peer Closed")
-          context stop self
-      }, discardOld = false)
-
+    case SenzAck =>
+      logger.info(s"suceess write, notify to buffer")
+      //buffRef ! ReadBuf
     case DeadLetter(msg, from, to) =>
       // dead letter
       logger.error("Dead letter " + msg + "from " + from + "to " + to)
-      msg match {
-        case Msg(data) =>
-          logger.info("Resend message")
-          from.tell(msg, to)
-        case _ =>
-          logger.info("No need to resend message")
-      }
   }
 
   def handleShare(senzMsg: SenzMsg) = {

@@ -46,7 +46,7 @@ class SenzListenerActor extends Actor with Configuration {
       logger.info(s"Client connected from ${remote.getHostName}")
 
       val handler = context.actorOf(SenzHandlerActor.props(sender))
-      sender ! Tcp.Register(handler, keepOpenOnPeerClosed = false, useResumeWriting = true)
+      sender ! Tcp.Register(handler, keepOpenOnPeerClosed = true)
     case Tcp.CommandFailed(_: Bind) =>
       logger.error("Bind failed")
       context stop self
