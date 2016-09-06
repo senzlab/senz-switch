@@ -2,15 +2,16 @@ package com.score.senzswitch.actors
 
 import akka.actor._
 import akka.io.Tcp
-import akka.io.Tcp.{Event, Write}
+import akka.io.Tcp.{Event, ResumeWriting, Write}
 import akka.util.ByteString
-import com.score.senzswitch.actors.SenzBufferActor.{ReadBuf, Buf}
+import com.score.senzswitch.actors.SenzBufferActor.Buf
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
 import com.score.senzswitch.config.Configuration
 import com.score.senzswitch.protocols._
 import com.score.senzswitch.utils.SenzUtils
 import org.slf4j.LoggerFactory
 
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 
 object SenzHandlerActor {
@@ -34,6 +35,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
   var streaming: Boolean = _
 
   var streamRef: ActorRef = _
+
+  var failedSenz = new ListBuffer[Any]
 
   context watch senderRef
 
@@ -60,9 +63,18 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       logger.info("Senz received " + buf)
 
       buffRef ! buf
-    case Tcp.CommandFailed(w: Write) =>
-      logger.error("Failed to write data to socket")
-    //senderRef ! ResumeWriting
+    case Tcp.CommandFailed(Write(data, ack)) =>
+      val msg = data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", "")
+      logger.error(s"Failed to write $msg to socket from $name")
+
+      if (msg.contains("#stream off")) {
+        senderRef ! ResumeWriting
+        failedSenz += Write(data, ack)
+      }
+    case Tcp.WritingResumed =>
+      logger.info(s"Write resumed of $name")
+      failedSenz.foreach(write => senderRef ! write)
+      failedSenz.clear()
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
       context stop self
@@ -117,7 +129,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       senderRef ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
     case SenzAck =>
       logger.info(s"suceess write, notify to buffer")
-      //buffRef ! ReadBuf
     case DeadLetter(msg, from, to) =>
       // dead letter
       logger.error("Dead letter " + msg + "from " + from + "to " + to)
@@ -241,6 +252,5 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
     val senz = senzMsg.senz
     logger.info(s"PING from senzie ${senz.sender}")
   }
-
 
 }
