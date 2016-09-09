@@ -141,7 +141,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         // should be public key sharing
         // store public key, store actor
         val send = senz.sender
-        val key = senz.attributes.get("#pubkey").get
+        val key = senz.attributes("#pubkey")
         keyStore.findSenzieKey(name) match {
           case Some(SenzKey(`send`, `key`)) =>
             logger.info(s"Have senzie with name $name and key $key")
@@ -166,7 +166,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
           case _ =>
             logger.info("No senzies with name " + name)
 
-            keyStore.saveSenzieKey(SenzKey(senz.sender, senz.attributes.get("#pubkey").get))
+            keyStore.saveSenzieKey(SenzKey(senz.sender, senz.attributes("#pubkey")))
 
             logger.info(s"Registration done of senzie $name")
 
@@ -185,7 +185,13 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
           // mark as shared attributes
           //shareStore.share(senz.sender, senz.receiver, senz.attributes.keySet.toList)
 
-          SenzListenerActor.actorRefs.get(senz.receiver).get ! Msg(senzMsg.data)
+          SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
+        } else {
+          logger.error(s"Store NOT contains actor with " + senz.receiver)
+
+          // send offline message back
+          val payload = s"DATA #msg offline #name${senz.receiver} @${senz.sender} ^senzswitch"
+          self ! Msg(crypto.sing(payload))
         }
     }
   }
@@ -198,17 +204,21 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       case `switchName` =>
         // should be request for public key of other senzie
         // find senz key and send it back
-        val key = keyStore.findSenzieKey(senz.attributes.get("#pubkey").get).get.key
-        val payload = s"DATA #pubkey $key #name ${senz.attributes.get("#pubkey").get} @${senz.sender} ^${senz.receiver}"
+        val key = keyStore.findSenzieKey(senz.attributes("#pubkey")).get.key
+        val payload = s"DATA #pubkey $key #name ${senz.attributes("#pubkey")} @${senz.sender} ^${senz.receiver}"
         self ! Msg(crypto.sing(payload))
       case _ =>
         // get senz for other senzie
         // forward senz to receiver
         if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
           logger.info(s"Store contains actor with " + senz.receiver)
-          SenzListenerActor.actorRefs.get(senz.receiver).get ! Msg(senzMsg.data)
+          SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
         } else {
           logger.error(s"Store NOT contains actor with " + senz.receiver)
+
+          // send offline message back
+          val payload = s"DATA #msg offline #name${senz.receiver} @${senz.sender} ^senzswitch"
+          self ! Msg(crypto.sing(payload))
         }
     }
   }
@@ -222,7 +232,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
       case Some("on") =>
         logger.info(s"Streaming ON from ${senz.sender} to ${senz.receiver} ")
         streaming = true
-        streamRef = SenzListenerActor.actorRefs.get(senz.receiver).get
+        streamRef = SenzListenerActor.actorRefs(senz.receiver)
       case Some("off") =>
         streaming = false
         logger.info(s"Streaming OFF from ${senz.sender} to ${senz.receiver} ")
@@ -236,9 +246,13 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
     } else {
       if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
         logger.info(s"Store contains actor with " + senz.receiver)
-        SenzListenerActor.actorRefs.get(senz.receiver).get ! Msg(senzMsg.data)
+        SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
       } else {
         logger.error(s"Store NOT contains actor with " + senz.receiver)
+
+        // send offline message back
+        val payload = s"DATA #msg offline #name${senz.receiver} @${senz.sender} ^senzswitch"
+        self ! Msg(crypto.sing(payload))
       }
     }
   }
