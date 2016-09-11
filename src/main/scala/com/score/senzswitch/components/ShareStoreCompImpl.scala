@@ -3,7 +3,7 @@ package com.score.senzswitch.components
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoClient
 import com.mongodb.casbah.commons.{MongoDBList, MongoDBObject}
-import com.score.senzswitch.config.Configuration
+import com.score.senzswitch.config.AppConfig
 
 import scala.annotation.tailrec
 
@@ -12,7 +12,7 @@ import scala.annotation.tailrec
  */
 trait ShareStoreCompImpl extends ShareStoreComp {
 
-  this: Configuration =>
+  this: AppConfig =>
 
   val shareStore = new ShareStoreImpl
 

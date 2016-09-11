@@ -3,7 +3,7 @@ package com.score.senzswitch.components
 import java.io.{File, PrintWriter}
 
 import com.mongodb.casbah.Imports._
-import com.score.senzswitch.config.{Configuration, MongoDbConf}
+import com.score.senzswitch.config.{AppConfig, MongoDbConf}
 import com.score.senzswitch.protocols.{SenzKey, SwitchKey}
 
 /**
@@ -11,7 +11,7 @@ import com.score.senzswitch.protocols.{SenzKey, SwitchKey}
   */
 trait KeyStoreCompImpl extends KeyStoreComp {
 
-  this: MongoDbConf with Configuration =>
+  this: MongoDbConf with AppConfig =>
 
   val keyStore = new KeyStoreImpl()
 

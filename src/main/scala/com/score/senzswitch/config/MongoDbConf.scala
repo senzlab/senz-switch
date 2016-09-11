@@ -2,7 +2,7 @@ package com.score.senzswitch.config
 
 import com.mongodb.casbah.MongoClient
 
-object MongoDbConf extends Configuration {
+object MongoDbConf extends AppConfig {
   println("init..")
 
   lazy val client = MongoClient(mongoHost, mongoPort)

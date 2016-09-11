@@ -3,7 +3,7 @@ package com.score.senzswitch.components
 import java.security._
 import java.security.spec.{PKCS8EncodedKeySpec, X509EncodedKeySpec}
 
-import com.score.senzswitch.config.Configuration
+import com.score.senzswitch.config.AppConfig
 import com.score.senzswitch.protocols.{Senz, SenzType, SwitchKey}
 import sun.misc.{BASE64Decoder, BASE64Encoder}
 
@@ -12,7 +12,7 @@ import sun.misc.{BASE64Decoder, BASE64Encoder}
  */
 trait CryptoCompImpl extends CryptoComp {
 
-  this: KeyStoreComp with Configuration =>
+  this: KeyStoreComp with AppConfig =>
 
   val crypto = new CryptoImpl()
 

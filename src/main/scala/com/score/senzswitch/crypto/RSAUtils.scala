@@ -5,13 +5,13 @@ import java.security._
 import java.security.spec.{PKCS8EncodedKeySpec, X509EncodedKeySpec}
 import javax.crypto.Cipher
 
-import com.score.senzswitch.config.Configuration
+import com.score.senzswitch.config.AppConfig
 import sun.misc.{BASE64Decoder, BASE64Encoder}
 
 /**
  * Created by eranga on 1/11/16.
  */
-object RSAUtils extends Configuration {
+object RSAUtils extends AppConfig {
   def initRSAKeys() = {
     // first create .keys directory
     val dir: File = new File(keysDir)

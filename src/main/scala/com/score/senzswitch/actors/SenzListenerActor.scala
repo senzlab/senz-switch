@@ -5,7 +5,7 @@ import java.net.InetSocketAddress
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props}
 import akka.io.{IO, Tcp}
-import com.score.senzswitch.config.Configuration
+import com.score.senzswitch.config.AppConfig
 import org.slf4j.LoggerFactory
 
 object SenzListenerActor {
@@ -14,7 +14,7 @@ object SenzListenerActor {
   def props: Props = Props(new SenzListenerActor)
 }
 
-class SenzListenerActor extends Actor with Configuration {
+class SenzListenerActor extends Actor with AppConfig {
 
   import Tcp._
   import context.system
