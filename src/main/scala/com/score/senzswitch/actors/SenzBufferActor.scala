@@ -2,7 +2,7 @@ package com.score.senzswitch.actors
 
 import akka.actor.{Actor, ActorRef, Props}
 import com.score.senzswitch.components.{CryptoCompImpl, KeyStoreCompImpl}
-import com.score.senzswitch.config.Configuration
+import com.score.senzswitch.config.{Configuration, MongoDbConf}
 import com.score.senzswitch.protocols._
 import com.score.senzswitch.utils.SenzParser
 import org.slf4j.LoggerFactory
@@ -17,7 +17,7 @@ object SenzBufferActor {
 
 }
 
-class SenzBufferActor(handlerRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl with CryptoCompImpl {
+class SenzBufferActor(handlerRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl with MongoDbConf with CryptoCompImpl {
 
   import SenzBufferActor._
 

@@ -3,15 +3,15 @@ package com.score.senzswitch.components
 import java.io.{File, PrintWriter}
 
 import com.mongodb.casbah.Imports._
-import com.score.senzswitch.config.Configuration
+import com.score.senzswitch.config.{Configuration, MongoDbConf}
 import com.score.senzswitch.protocols.{SenzKey, SwitchKey}
 
 /**
- * Created by eranga on 7/15/16.
- */
+  * Created by eranga on 7/15/16.
+  */
 trait KeyStoreCompImpl extends KeyStoreComp {
 
-  this: Configuration =>
+  this: MongoDbConf with Configuration =>
 
   val keyStore = new KeyStoreImpl()
 
@@ -20,9 +20,6 @@ trait KeyStoreCompImpl extends KeyStoreComp {
     val END_PUBLIC_KEY = "-----END PUBLIC KEY-----"
     val BEGIN_PRIVATE_KEY = "-----BEGIN RSA PRIVATE KEY-----"
     val END_PRIVATE_KEY = "-----END RSA PRIVATE KEY-----"
-
-    val client = MongoClient(mongoHost, mongoPort)
-    val senzDb = client(dbName)
   }
 
   class KeyStoreImpl extends KeyStore {

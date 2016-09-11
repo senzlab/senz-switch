@@ -6,7 +6,7 @@ import akka.io.Tcp.{Event, ResumeWriting, Write}
 import akka.util.ByteString
 import com.score.senzswitch.actors.SenzBufferActor.Buf
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
-import com.score.senzswitch.config.Configuration
+import com.score.senzswitch.config.{Configuration, MongoDbConf}
 import com.score.senzswitch.protocols._
 import com.score.senzswitch.utils.SenzUtils
 import org.slf4j.LoggerFactory
@@ -21,7 +21,7 @@ object SenzHandlerActor {
   def props(senderRef: ActorRef) = Props(classOf[SenzHandlerActor], senderRef)
 }
 
-class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl with ShareStoreCompImpl {
+class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl with ShareStoreCompImpl with MongoDbConf {
 
   import SenzHandlerActor._
   import context._
@@ -190,7 +190,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 
           // send offline message back
-          val payload = s"DATA #msg offline #name${senz.receiver} @${senz.sender} ^senzswitch"
+          val payload = s"DATA #msg offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
           self ! Msg(crypto.sing(payload))
         }
     }
@@ -217,7 +217,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 
           // send offline message back
-          val payload = s"DATA #msg offline #name${senz.receiver} @${senz.sender} ^senzswitch"
+          val payload = s"DATA #msg offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
           self ! Msg(crypto.sing(payload))
         }
     }
@@ -251,7 +251,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with Configuration wit
         logger.error(s"Store NOT contains actor with " + senz.receiver)
 
         // send offline message back
-        val payload = s"DATA #msg offline #name${senz.receiver} @${senz.sender} ^senzswitch"
+        val payload = s"DATA #msg offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
         self ! Msg(crypto.sing(payload))
       }
     }
