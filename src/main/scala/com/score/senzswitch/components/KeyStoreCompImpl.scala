@@ -3,7 +3,7 @@ package com.score.senzswitch.components
 import java.io.{File, PrintWriter}
 
 import com.mongodb.casbah.Imports._
-import com.score.senzswitch.config.{AppConfig, MongoDbConf}
+import com.score.senzswitch.config.{AppConfig, DbConfig}
 import com.score.senzswitch.protocols.{SenzKey, SwitchKey}
 
 /**
@@ -11,7 +11,7 @@ import com.score.senzswitch.protocols.{SenzKey, SwitchKey}
   */
 trait KeyStoreCompImpl extends KeyStoreComp {
 
-  this: MongoDbConf with AppConfig =>
+  this: DbConfig with AppConfig =>
 
   val keyStore = new KeyStoreImpl()
 
@@ -71,14 +71,12 @@ trait KeyStoreCompImpl extends KeyStoreComp {
 
     override def saveSenzieKey(senzKey: SenzKey) = {
       // save key in db
-      val coll = senzDb(collName)
       val query = MongoDBObject("name" -> senzKey.name, "key" -> senzKey.key)
       coll.insert(query)
     }
 
     override def findSenzieKey(name: String): Option[SenzKey] = {
       // read key from db
-      val coll = senzDb(collName)
       val query = MongoDBObject("name" -> name)
       coll.findOne(query) match {
         case Some(obj) =>

@@ -1,30 +1,21 @@
 package com.score.senzswitch.components
 
 import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.MongoClient
 import com.mongodb.casbah.commons.{MongoDBList, MongoDBObject}
-import com.score.senzswitch.config.AppConfig
+import com.score.senzswitch.config.{AppConfig, DbConfig}
 
 import scala.annotation.tailrec
 
 /**
- * Created by eranga on 8/13/16.
- */
+  * Created by eranga on 8/13/16.
+  */
 trait ShareStoreCompImpl extends ShareStoreComp {
 
-  this: AppConfig =>
+  this: DbConfig with AppConfig =>
 
   val shareStore = new ShareStoreImpl
 
-  object ShareStoreImpl {
-    val client = MongoClient(mongoHost, mongoPort)
-    val senzDb = client(dbName)
-    val coll = senzDb(collName)
-  }
-
   class ShareStoreImpl extends ShareStore {
-
-    import ShareStoreImpl._
 
     @tailrec
     final def share(from: String, to: String, attr: List[String]): Boolean = {
@@ -76,7 +67,6 @@ trait ShareStoreCompImpl extends ShareStoreComp {
       zBuilder += "name" -> name
       zBuilder += "key" -> key
 
-      val coll = senzDb(collName)
       coll.insert(zBuilder.result())
     }
   }
