@@ -18,6 +18,10 @@ object SenzHandlerActor {
 
   case object SenzAck extends Event
 
+  case object SenzPing
+
+  case object SenzTimeout
+
   def props(senderRef: ActorRef) = Props(classOf[SenzHandlerActor], senderRef)
 }
 
@@ -36,33 +40,47 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
 
   var streamRef: ActorRef = _
 
+  var isOnline: Boolean = _
+
   var failedSenz = new ListBuffer[Any]
 
   context watch senderRef
 
   context.system.eventStream.subscribe(self, classOf[DeadLetter])
 
-  val cancellable = system.scheduler.schedule(10.minute, 10.minutes, self, Ping)
+  val pingCancellable = system.scheduler.schedule(10.seconds, 10.seconds, self, SenzPing)
+  var timeoutCancellable = system.scheduler.scheduleOnce(30.seconds, self, SenzTimeout)
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
 
+    isOnline = true
     buffRef = context.actorOf(SenzBufferActor.props(self))
   }
 
   override def postStop() = {
     logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $name")
 
+    pingCancellable.cancel()
+    timeoutCancellable.cancel()
+
+    isOnline = false
     SenzListenerActor.actorRefs.remove(name)
-    cancellable.cancel()
   }
 
   override def receive = {
     case Tcp.Received(senzIn) =>
-      val buf = Buf(senzIn.decodeString("UTF-8"))
-      logger.info("Senz received " + buf)
+      isOnline = true
+      val senz = senzIn.decodeString("UTF-8")
+      logger.info("Senz received " + senz)
 
-      buffRef ! buf
+      if (senz.replaceAll("\n", "").replaceAll("\r", "").equalsIgnoreCase("PONG")) {
+        timeoutCancellable.cancel()
+        timeoutCancellable = system.scheduler.scheduleOnce(30.seconds, self, SenzTimeout)
+      } else {
+        val buf = Buf(senz)
+        buffRef ! buf
+      }
     case Tcp.CommandFailed(Write(data, ack)) =>
       val msg = data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", "")
       logger.error(s"Failed to write $msg to socket from $name")
@@ -86,6 +104,20 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
     case Terminated(`senderRef`) =>
       logger.info("Actor terminated " + senderRef.path)
       context stop self
+    case SenzPing =>
+      logger.info(s"PING message")
+      if (isOnline) senderRef ! Tcp.Write(ByteString(s"PING\n\r")) else context.stop(self)
+    case SenzTimeout =>
+      logger.info(s"Timeout message, about to stop")
+      isOnline = false
+    case Msg(data) =>
+      logger.info(s"Send senz message $data to user $name with SenzAck")
+      senderRef ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
+    case SenzAck =>
+      logger.info(s"success write, notify to buffer")
+    case DeadLetter(msg, from, to) =>
+      // dead letter
+      logger.error("Dead letter " + msg + "from " + from + "to " + to)
     case SenzMsg(senz: Senz, msg: String) =>
       logger.info(s"SenzMsg received $msg")
 
@@ -116,22 +148,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
 
           handlePing(SenzMsg(senz, msg))
       }
-    case Ping =>
-      if (name != null && name.nonEmpty) {
-        logger.info(s"PING message to user $name")
-        val ping = crypto.sing(SenzUtils.getPingSenz(name, switchName))
-        senderRef ! Tcp.Write(ByteString(s"$ping\n\r"))
-      } else {
-        logger.error("Cannot send PING, no name assigned")
-      }
-    case Msg(data) =>
-      logger.info(s"Send senz message $data to user $name with SenzAck")
-      senderRef ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
-    case SenzAck =>
-      logger.info(s"suceess write, notify to buffer")
-    case DeadLetter(msg, from, to) =>
-      // dead letter
-      logger.error("Dead letter " + msg + "from " + from + "to " + to)
   }
 
   def handleShare(senzMsg: SenzMsg) = {
