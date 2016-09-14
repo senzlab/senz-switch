@@ -62,8 +62,13 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with KeyStoreCompImpl 
           logger.info(s"Got senz from buffer $msg")
 
           // send message back to handler
-          val senz = SenzParser.parseSenz(msg)
-          handlerRef ! SenzMsg(senz, msg)
+          msg match {
+            case "PONG" =>
+              handlerRef ! SenzMsg(Senz(SenzType.PONG, "", "", Map.empty, None), "PONG")
+            case _ =>
+              val senz = SenzParser.parseSenz(msg)
+              handlerRef ! SenzMsg(senz, msg)
+          }
         }
       }
     }

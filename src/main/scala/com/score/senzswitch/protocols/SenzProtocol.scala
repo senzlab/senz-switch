@@ -2,7 +2,7 @@ package com.score.senzswitch.protocols
 
 object SenzType extends Enumeration {
   type SenzType = Value
-  val SHARE, GET, PUT, DATA, PING = Value
+  val SHARE, GET, PUT, DATA, PING, PONG = Value
 }
 
 import com.score.senzswitch.protocols.SenzType._

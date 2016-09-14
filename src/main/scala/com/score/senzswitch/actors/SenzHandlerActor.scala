@@ -74,13 +74,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
       val senz = senzIn.decodeString("UTF-8")
       logger.info("Senz received " + senz)
 
-      if (senz.replaceAll("\n", "").replaceAll("\r", "").equalsIgnoreCase("PONG")) {
-        timeoutCancellable.cancel()
-        timeoutCancellable = system.scheduler.scheduleOnce(30.seconds, self, SenzTimeout)
-      } else {
-        val buf = Buf(senz)
-        buffRef ! buf
-      }
+      val buf = Buf(senz)
+      buffRef ! buf
     case Tcp.CommandFailed(Write(data, ack)) =>
       val msg = data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", "")
       logger.error(s"Failed to write $msg to socket from $name")
@@ -105,7 +100,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
       logger.info("Actor terminated " + senderRef.path)
       context stop self
     case SenzPing =>
-      logger.info(s"PING message")
+      logger.info(s"PING tobe send")
       if (isOnline) senderRef ! Tcp.Write(ByteString(s"PING\n\r")) else context.stop(self)
     case SenzTimeout =>
       logger.info(s"Timeout message, about to stop")
@@ -120,6 +115,9 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
       logger.error("Dead letter " + msg + "from " + from + "to " + to)
     case SenzMsg(senz: Senz, msg: String) =>
       logger.info(s"SenzMsg received $msg")
+
+      timeoutCancellable.cancel()
+      timeoutCancellable = system.scheduler.scheduleOnce(30.seconds, self, SenzTimeout)
 
       senz match {
         case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
@@ -147,6 +145,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
           SenzListenerActor.actorRefs.put(name, self)
 
           handlePing(SenzMsg(senz, msg))
+        case Senz(SenzType.PONG, _, _, _, _) =>
+          // do nothing
       }
   }
 
