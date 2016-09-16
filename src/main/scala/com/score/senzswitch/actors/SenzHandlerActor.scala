@@ -79,10 +79,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
       val msg = data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", "")
       logger.error(s"Failed to write $msg to socket from $name")
 
-      if (msg.contains("#stream off")) {
-        senderRef ! ResumeWriting
-        failedSenz += Write(data, ack)
-      }
+      failedSenz += Write(data, ack)
+      senderRef ! ResumeWriting
     case Tcp.WritingResumed =>
       logger.info(s"Write resumed of $name")
       failedSenz.foreach(write => senderRef ! write)
@@ -145,7 +143,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
 
           handlePing(SenzMsg(senz, msg))
         case Senz(SenzType.TIK, _, _, _, _) =>
-          // do nothing
+        // do nothing
       }
   }
 
