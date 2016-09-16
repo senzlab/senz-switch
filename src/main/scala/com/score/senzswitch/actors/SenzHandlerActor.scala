@@ -39,8 +39,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
 
   var streamRef: ActorRef = _
 
-  var isOnline: Boolean = _
-
   var failedSenz = new ListBuffer[Any]
 
   context watch senderRef
@@ -48,12 +46,10 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
   context.system.eventStream.subscribe(self, classOf[DeadLetter])
 
   val takCancel = system.scheduler.schedule(0.seconds, 60.seconds, self, Tak)
-  //var tukCancel = system.scheduler.scheduleOnce(360.seconds, self, Tuk)
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
 
-    isOnline = true
     buffRef = context.actorOf(SenzBufferActor.props(self))
   }
 
@@ -61,15 +57,12 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
     logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $name")
 
     takCancel.cancel()
-    //tukCancel.cancel()
 
-    isOnline = false
     SenzListenerActor.actorRefs.remove(name)
   }
 
   override def receive = {
     case Tcp.Received(senzIn) =>
-      isOnline = true
       val senz = senzIn.decodeString("UTF-8")
       logger.info("Senz received " + senz)
 
@@ -98,10 +91,9 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
       context stop self
     case Tak =>
       logger.info(s"TAK tobe send")
-      if (isOnline) senderRef ! Tcp.Write(ByteString(s"TAK\n\r")) else context.stop(self)
+      senderRef ! Tcp.Write(ByteString(s"TAK\n\r"))
     case Tuk =>
       logger.info(s"Timeout/Tuk message")
-      isOnline = false
     case Msg(data) =>
       logger.info(s"Send senz message $data to user $name with SenzAck")
       senderRef ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
@@ -112,9 +104,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
       logger.error("Dead letter " + msg + "from " + from + "to " + to)
     case SenzMsg(senz: Senz, msg: String) =>
       logger.info(s"SenzMsg received $msg")
-
-      //tukCancel.cancel()
-      //tukCancel = system.scheduler.scheduleOnce(360.seconds, self, Tuk)
 
       senz match {
         case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
