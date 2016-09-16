@@ -179,7 +179,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
         logger.info(s"SHARE from senzie $name")
         if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
           // mark as shared attributes
-          //shareStore.share(senz.sender, senz.receiver, senz.attributes.keySet.toList)
+          shareStore.share(senz.sender, senz.receiver, senz.attributes.keySet.toList)
 
           SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
         } else {
@@ -251,6 +251,13 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
         self ! Msg(crypto.sing(payload))
       }
     }
+  }
+
+  def broadcastStatus() = {
+    shareStore.getCons(name).filter(conn => SenzListenerActor.actorRefs.contains(conn)).foreach(conn => {
+      val payload = s"DATA #msg offline #name $name @$conn ^senzswitch"
+      SenzListenerActor.actorRefs(conn) ! Msg(crypto.sing(payload))
+    })
   }
 
   def handlePut(senzMsg: SenzMsg) = {

@@ -13,6 +13,8 @@ trait ShareStoreComp {
     def unshare(from: String, to: String, attr: List[String]): Boolean
 
     def isShared(from: String, to: String, attr: List[String]): Boolean
+
+    def getCons(name: String): List[String]
   }
 
 }
