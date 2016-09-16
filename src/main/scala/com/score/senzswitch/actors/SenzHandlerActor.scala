@@ -198,7 +198,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
 
     senz.receiver match {
       case `switchName` =>
-        if (senz.attributes.contains("pubkey") && senz.attributes.contains("name")) {
+        if (senz.attributes.contains("pubkey")) {
           // public key of user
           // should be request for public key of other senzie
           // find senz key and send it back
@@ -206,7 +206,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
           val key = keyStore.findSenzieKey(user).get.key
           val payload = s"DATA #pubkey $key #name $user @${senz.sender} ^${senz.receiver}"
           self ! Msg(crypto.sing(payload))
-        } else if (senz.attributes.contains("status") && senz.attributes.contains("name")) {
+        } else if (senz.attributes.contains("status")) {
           // user online/offline status
           val user = senz.attributes("name")
           val status = SenzListenerActor.actorRefs.contains(user)
@@ -261,13 +261,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
         self ! Msg(crypto.sing(payload))
       }
     }
-  }
-
-  def broadcastStatus() = {
-    shareStore.getCons(name).filter(conn => SenzListenerActor.actorRefs.contains(conn)).foreach(conn => {
-      val payload = s"DATA #status offline #name $name @$conn ^senzswitch"
-      SenzListenerActor.actorRefs(conn) ! Msg(crypto.sing(payload))
-    })
   }
 
   def handlePut(senzMsg: SenzMsg) = {
