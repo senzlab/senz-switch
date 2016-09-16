@@ -145,7 +145,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
 
           handlePing(SenzMsg(senz, msg))
         case Senz(SenzType.TIK, _, _, _, _) =>
-        // do nothing
+          // do nothing
       }
   }
 

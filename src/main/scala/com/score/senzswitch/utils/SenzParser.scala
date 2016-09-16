@@ -3,8 +3,8 @@ package com.score.senzswitch.utils
 import com.score.senzswitch.protocols.{Senz, SenzType}
 
 /**
- * Created by eranga on 7/23/16.
- */
+  * Created by eranga on 7/23/16.
+  */
 object SenzParser {
 
   def parseSenz(senzMsg: String) = {
@@ -12,8 +12,8 @@ object SenzParser {
 
     val senzType = getSenzType(tokens)
     val signature = getSignature(tokens.drop(1))
-    val sender = getSender(tokens.drop(1).dropRight(1))
-    val receiver = getReceiver(tokens.drop(1).dropRight(2))
+    val sender = getSender(tokens.drop(1).dropRight(1)).toLowerCase
+    val receiver = getReceiver(tokens.drop(1).dropRight(2)).toLowerCase
     val attr = getAttributes(tokens.drop(1).dropRight(3))
 
     Senz(senzType, sender, receiver, attr, signature)
