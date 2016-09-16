@@ -63,8 +63,10 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with KeyStoreCompImpl 
 
           // send message back to handler
           msg match {
-            case "PONG" =>
-              handlerRef ! SenzMsg(Senz(SenzType.PONG, "", "", Map.empty, None), "PONG")
+            case "TAK" =>
+              handlerRef ! SenzMsg(Senz(SenzType.TAK, "", "", Map.empty, None), "TAK")
+            case "TIK" =>
+              handlerRef ! SenzMsg(Senz(SenzType.TIK, "", "", Map.empty, None), "TIK")
             case _ =>
               val senz = SenzParser.parseSenz(msg)
               handlerRef ! SenzMsg(senz, msg)

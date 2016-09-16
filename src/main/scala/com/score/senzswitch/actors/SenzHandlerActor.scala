@@ -8,7 +8,6 @@ import com.score.senzswitch.actors.SenzBufferActor.Buf
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
 import com.score.senzswitch.config.{AppConfig, DbConfig}
 import com.score.senzswitch.protocols._
-import com.score.senzswitch.utils.SenzUtils
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
@@ -18,9 +17,9 @@ object SenzHandlerActor {
 
   case object SenzAck extends Event
 
-  case object SenzPing
+  case object Tak
 
-  case object SenzTimeout
+  case object Tuk
 
   def props(senderRef: ActorRef) = Props(classOf[SenzHandlerActor], senderRef)
 }
@@ -48,8 +47,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
 
   context.system.eventStream.subscribe(self, classOf[DeadLetter])
 
-  val pingCancellable = system.scheduler.schedule(10.seconds, 10.seconds, self, SenzPing)
-  var timeoutCancellable = system.scheduler.scheduleOnce(30.seconds, self, SenzTimeout)
+  val takCancel = system.scheduler.schedule(0.seconds, 60.seconds, self, Tak)
+  //var tukCancel = system.scheduler.scheduleOnce(360.seconds, self, Tuk)
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
@@ -61,8 +60,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
   override def postStop() = {
     logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $name")
 
-    pingCancellable.cancel()
-    timeoutCancellable.cancel()
+    takCancel.cancel()
+    //tukCancel.cancel()
 
     isOnline = false
     SenzListenerActor.actorRefs.remove(name)
@@ -99,11 +98,11 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
     case Terminated(`senderRef`) =>
       logger.info("Actor terminated " + senderRef.path)
       context stop self
-    case SenzPing =>
-      logger.info(s"PING tobe send")
-      if (isOnline) senderRef ! Tcp.Write(ByteString(s"PING\n\r")) else context.stop(self)
-    case SenzTimeout =>
-      logger.info(s"Timeout message, about to stop")
+    case Tak =>
+      logger.info(s"TAK tobe send")
+      if (isOnline) senderRef ! Tcp.Write(ByteString(s"TAK\n\r")) else context.stop(self)
+    case Tuk =>
+      logger.info(s"Timeout/Tuk message")
       isOnline = false
     case Msg(data) =>
       logger.info(s"Send senz message $data to user $name with SenzAck")
@@ -116,8 +115,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
     case SenzMsg(senz: Senz, msg: String) =>
       logger.info(s"SenzMsg received $msg")
 
-      timeoutCancellable.cancel()
-      timeoutCancellable = system.scheduler.scheduleOnce(30.seconds, self, SenzTimeout)
+      //tukCancel.cancel()
+      //tukCancel = system.scheduler.scheduleOnce(360.seconds, self, Tuk)
 
       senz match {
         case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
@@ -145,8 +144,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
           SenzListenerActor.actorRefs.put(name, self)
 
           handlePing(SenzMsg(senz, msg))
-        case Senz(SenzType.PONG, _, _, _, _) =>
-          // do nothing
+        case Senz(SenzType.TIK, _, _, _, _) =>
+        // do nothing
       }
   }
 
@@ -165,9 +164,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
             // share from already registered senzie
             val payload = s"DATA #msg REG_ALR #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
             self ! Msg(crypto.sing(payload))
-
-            // start scheduler to PING on every 10 minutes
-            system.scheduler.schedule(10.minutes, 10.minutes, self, Msg(crypto.sing(SenzUtils.getPingSenz(senz.sender, switchName))))
           case Some(SenzKey(_, _)) =>
             logger.info(s"Have senzie with name $name")
 
@@ -189,9 +185,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
             // reply share done msg
             val payload = s"DATA #msg REG_DONE #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
             self ! Msg(crypto.sing(payload))
-
-            // start scheduler to PING on every 10 minutes
-            system.scheduler.schedule(10.minutes, 10.minutes, self, Msg(crypto.sing(SenzUtils.getPingSenz(senz.sender, switchName))))
         }
       case _ =>
         // share senz for other senzie
