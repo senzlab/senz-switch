@@ -25,7 +25,7 @@ trait ShareStoreCompImpl extends ShareStoreComp {
           coll.update(MongoDBObject("name" -> to), $addToSet(x -> from))
           coll.update(MongoDBObject("name" -> from), $addToSet(to -> x))
 
-          // update connected users
+          // update connected users(cons)
           coll.update(MongoDBObject("name" -> to), $addToSet("cons" -> from))
           coll.update(MongoDBObject("name" -> from), $addToSet("cons" -> to))
 
@@ -43,9 +43,9 @@ trait ShareStoreCompImpl extends ShareStoreComp {
           coll.update(MongoDBObject("name" -> to), $pull(x -> from))
           coll.update(MongoDBObject("name" -> from), $pull(to -> x))
 
-          // TODO update/remove connected users
-          //          coll.update(MongoDBObject("name" -> to), $pull("cons" -> from))
-          //          coll.update(MongoDBObject("name" -> from), $pull("cons" -> to))
+          // TODO update/remove connected users(cons)
+          // coll.update(MongoDBObject("name" -> to), $pull("cons" -> from))
+          // coll.update(MongoDBObject("name" -> from), $pull("cons" -> to))
 
           unshare(from, to, tail)
         case Nil =>
@@ -98,25 +98,25 @@ trait ShareStoreCompImpl extends ShareStoreComp {
 //  shareStore.insert("haskell", "hkey")
 //  shareStore.insert("erlang", "hkey")
 //
-//  //shareStore.share("saka", "kaka", List("lat", "lon", "msg", "tell"))
+//  shareStore.share("saka", "kaka", List("lat", "lon", "msg", "tell"))
 //
 //  shareStore.share("haskell", "scala", List("lat", "lon", "msg", "tell"))
 //  shareStore.share("erlang", "scala", List("lat", "lon", "msg", "tell"))
 //  println(shareStore.getCons("scala"))
-//shareStore.unshare("scala", "haskell", List("lat", "lon"))
+//  shareStore.unshare("scala", "haskell", List("lat", "lon"))
 
-//shareStore.share("scala", "haskell", "lat")
-//shareStore.unsha("scala", "haskell", "lat")
-//shareStore.isShared("scala", "haskell", "lat")
+//  shareStore.share("scala", "haskell", "lat")
+//  shareStore.unsha("scala", "haskell", "lat")
+//  shareStore.isShared("scala", "haskell", "lat")
 
-//shareStore.share("eranga", "lambda", "lat")
-//shareStore.sha("herath", "lambda", "lot")
-//shareStore.isSha("herath", "lambda", "lot")
+//  shareStore.share("eranga", "lambda", "lat")
+//  shareStore.sha("herath", "lambda", "lot")
+//  shareStore.isSha("herath", "lambda", "lot")
 
-//shareStore.share1("lakmal", "eranga", "lon")
-//shareStore.unshare1("lakmal", "eranga", "lon")
-//shareStore.isShared("lakmal", "eranga", "lon")
+//  shareStore.share1("lakmal", "eranga", "lon")
+//  shareStore.unshare1("lakmal", "eranga", "lon")
+//  shareStore.isShared("lakmal", "eranga", "lon")
 
-//shareStore.share("lakmal", "lambda", List("msg"))
-//shareStore.unshare("lakmal", "lambda", List("lat", "msg"))
+//  shareStore.share("lakmal", "lambda", List("msg"))
+//  shareStore.unshare("lakmal", "lambda", List("lat", "msg"))
 //}
