@@ -186,7 +186,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 
           // send offline message back
-          val payload = s"DATA #msg offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
+          val payload = s"DATA #status offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
           self ! Msg(crypto.sing(payload))
         }
     }
@@ -198,11 +198,21 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
 
     senz.receiver match {
       case `switchName` =>
-        // should be request for public key of other senzie
-        // find senz key and send it back
-        val key = keyStore.findSenzieKey(senz.attributes("#pubkey")).get.key
-        val payload = s"DATA #pubkey $key #name ${senz.attributes("#pubkey")} @${senz.sender} ^${senz.receiver}"
-        self ! Msg(crypto.sing(payload))
+        if (senz.attributes.contains("pubkey") && senz.attributes.contains("name")) {
+          // public key of user
+          // should be request for public key of other senzie
+          // find senz key and send it back
+          val user = senz.attributes("name")
+          val key = keyStore.findSenzieKey(user).get.key
+          val payload = s"DATA #pubkey $key #name $user @${senz.sender} ^${senz.receiver}"
+          self ! Msg(crypto.sing(payload))
+        } else if (senz.attributes.contains("status") && senz.attributes.contains("name")) {
+          // user online/offline status
+          val user = senz.attributes("name")
+          val status = SenzListenerActor.actorRefs.contains(user)
+          val payload = s"DATA #status $status #name $user @${senz.sender} ^${senz.receiver}"
+          self ! Msg(crypto.sing(payload))
+        }
       case _ =>
         // get senz for other senzie
         // forward senz to receiver
@@ -213,7 +223,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 
           // send offline message back
-          val payload = s"DATA #msg offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
+          val payload = s"DATA #status offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
           self ! Msg(crypto.sing(payload))
         }
     }
@@ -247,7 +257,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
         logger.error(s"Store NOT contains actor with " + senz.receiver)
 
         // send offline message back
-        val payload = s"DATA #msg offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
+        val payload = s"DATA #status offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
         self ! Msg(crypto.sing(payload))
       }
     }
@@ -255,7 +265,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
 
   def broadcastStatus() = {
     shareStore.getCons(name).filter(conn => SenzListenerActor.actorRefs.contains(conn)).foreach(conn => {
-      val payload = s"DATA #msg offline #name $name @$conn ^senzswitch"
+      val payload = s"DATA #status offline #name $name @$conn ^senzswitch"
       SenzListenerActor.actorRefs(conn) ! Msg(crypto.sing(payload))
     })
   }
