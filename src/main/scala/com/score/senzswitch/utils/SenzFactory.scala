@@ -6,7 +6,7 @@ import com.score.senzswitch.config.{AppConfig, DbConfig}
 import org.slf4j.LoggerFactory
 
 object SenzFactory extends CryptoCompImpl with KeyStoreCompImpl with DbConfig with AppConfig {
-  val setupLogging = {
+  val setupLogging = () => {
     val rootLogger = LoggerFactory.getLogger("root").asInstanceOf[Logger]
 
     switchMode match {
@@ -19,7 +19,7 @@ object SenzFactory extends CryptoCompImpl with KeyStoreCompImpl with DbConfig wi
     }
   }
 
-  val setupKeys = {
+  val setupKeys = () => {
     crypto.initKeys()
   }
 

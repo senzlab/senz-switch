@@ -3,7 +3,7 @@
 ## clone
 
 ```
-git clone git@github.com:senzptojects/tcp-switch.git senz-switch
+git clone git@github.com:senzprojects/tcp-switch.git senz-switch
 ```
 
 ## build with docker
@@ -18,4 +18,10 @@ docker build --tag erangaeb/senzswitch:0.14 .
 ```
 docker run -it -d -p 7070:7070 -v <logs dir>:/app/logs -v <keys dir>:/app/.keys -e MONGO_HOST=<mongo host> -e SWITCH_MODE=<switch mode> erangaeb/senzswitch:0.14
 docker run -it -d -p 7070:7070 -v /home/docker/senz/switch/logs:/app/logs -v /home/docker/senz/switch/keys:/app/.keys -e MONGO_HOST=172.17.0.1 -e SWITCH_MODE=PROD erangaeb/senzswitch:0.14
+```
+
+## virtualbox port forwarding rules with boot2docker(OS-X or Windows)
+  
+```
+VBoxManage controlvm "boot2docker-vm" natpf1 "tcp-port7070,tcp,,7070,,7070";
 ```

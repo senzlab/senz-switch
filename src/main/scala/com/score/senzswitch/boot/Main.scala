@@ -10,10 +10,10 @@ import com.score.senzswitch.utils.SenzFactory
 object Main extends App {
 
   // setup logging
-  SenzFactory.setupLogging
+  SenzFactory.setupLogging()
 
   // setup keys
-  SenzFactory.setupKeys
+  SenzFactory.setupKeys()
 
   // start actor
   implicit val system = ActorSystem("senz")

@@ -40,7 +40,7 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with KeyStoreCompImpl 
   override def receive = {
     case Buf(data) =>
       buffer.append(data)
-      logger.info(s"Buf to buffer ${buffer.toString}")
+      logger.debug(s"Buf to buffer ${buffer.toString}")
   }
 
   protected class SenzBuffer extends Thread {
@@ -59,7 +59,7 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with KeyStoreCompImpl 
         if (index != -1) {
           val msg = buffer.substring(0, index)
           buffer.delete(0, index + 1)
-          logger.info(s"Got senz from buffer $msg")
+          logger.debug(s"Got senz from buffer $msg")
 
           // send message back to handler
           msg match {
