@@ -18,6 +18,9 @@ RUN rm -rf /var/cache/oracle-jdk7-installer
 # set JAVA_HOME
 ENV JAVA_HOME /usr/lib/jvm/java-8-oracle
 
+# set switch mode env
+ENV SWITCH_MODE DEV
+
 # set service variables
 ENV MONGO_HOST dev.localhost
 ENV MONGO_PORT 27017

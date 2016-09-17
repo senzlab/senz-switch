@@ -14,6 +14,7 @@ trait AppConfig {
   val config = ConfigFactory.load()
 
   // switch config
+  lazy val switchMode = Try(config.getString("switch.mode")).getOrElse("DEV")
   lazy val switchName = Try(config.getString("switch.name")).getOrElse("senzswitch")
   lazy val switchPort = Try(config.getInt("switch.port")).getOrElse(9090)
 
