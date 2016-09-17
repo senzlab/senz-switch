@@ -43,8 +43,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
 
   context watch senderRef
 
-  context.system.eventStream.subscribe(self, classOf[DeadLetter])
-
   val takCancel = system.scheduler.schedule(0.seconds, 60.seconds, self, Tak)
 
   override def preStart() = {
@@ -99,9 +97,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
       senderRef ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
     case SenzAck =>
       logger.info(s"success write, notify to buffer")
-    case DeadLetter(msg, from, to) =>
-      // dead letter
-      logger.error("Dead letter " + msg + "from " + from + "to " + to)
     case SenzMsg(senz: Senz, msg: String) =>
       logger.info(s"SenzMsg received $msg")
 
