@@ -19,6 +19,8 @@ object SenzHandlerActor {
 
   case object Tak
 
+  case object Tik
+
   case object Tuk
 
   def props(senderRef: ActorRef) = Props(classOf[SenzHandlerActor], senderRef)
@@ -121,6 +123,11 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
           SenzListenerActor.actorRefs.put(name, self)
 
           handlePut(SenzMsg(senz, msg))
+        case Senz(SenzType.STREAM, sender, receiver, attr, signature) =>
+          name = senz.sender
+          SenzListenerActor.actorRefs.put(name, self)
+
+          handlerStream(SenzMsg(senz, msg))
         case Senz(SenzType.PING, sender, receiver, attr, signature) =>
           name = senz.sender
           SenzListenerActor.actorRefs.put(name, self)
@@ -256,6 +263,20 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
         val payload = s"DATA #status offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
         self ! Msg(crypto.sing(payload))
       }
+    }
+  }
+
+  def handlerStream(senzMsg: SenzMsg) = {
+    val senz = senzMsg.senz
+    logger.info(s"STREAM from senzie ${senz.sender}")
+
+    if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
+      logger.debug(s"Store contains actor with " + senz.receiver)
+
+      // not verify streams, instead directly send them
+      SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
+    } else {
+      logger.error(s"Store NOT contains actor with " + senz.receiver)
     }
   }
 

@@ -22,5 +22,4 @@ object SenzFactory extends CryptoCompImpl with KeyStoreCompImpl with DbConfig wi
   val setupKeys = () => {
     crypto.initKeys()
   }
-
 }
