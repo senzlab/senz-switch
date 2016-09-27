@@ -151,7 +151,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
             logger.debug(s"Have senzie with name $name and key $key")
 
             // share from already registered senzie
-            val payload = s"DATA #msg REG_ALR #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
+            val payload = s"DATA #status 601 #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
             self ! Msg(crypto.sing(payload))
           case Some(SenzKey(_, _)) =>
             logger.error(s"Have senzie with name $name")
@@ -159,7 +159,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
             // user already exists
             // send error
             // reply share done msg
-            val payload = s"DATA #msg REG_FAIL #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
+            val payload = s"DATA #status 602 #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
             self ! Msg(crypto.sing(payload))
 
             //context.stop(self)
@@ -172,7 +172,7 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
             logger.debug(s"Registration done of senzie $name")
 
             // reply share done msg
-            val payload = s"DATA #msg REG_DONE #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
+            val payload = s"DATA #status 600 #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
             self ! Msg(crypto.sing(payload))
         }
       case _ =>
