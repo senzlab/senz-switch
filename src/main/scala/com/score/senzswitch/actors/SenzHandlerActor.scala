@@ -5,6 +5,7 @@ import akka.io.Tcp
 import akka.io.Tcp.{Event, ResumeWriting, Write}
 import akka.util.ByteString
 import com.score.senzswitch.actors.SenzBufferActor.Buf
+import com.score.senzswitch.actors.SenzQueueActor.{Dequeue, Dispatch, Enqueue, QueueObj}
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
 import com.score.senzswitch.config.{AppConfig, DbConfig}
 import com.score.senzswitch.protocols._
@@ -23,10 +24,10 @@ object SenzHandlerActor {
 
   case object Tuk
 
-  def props(senderRef: ActorRef) = Props(classOf[SenzHandlerActor], senderRef)
+  def props(senderRef: ActorRef, queueRef: ActorRef) = Props(classOf[SenzHandlerActor], senderRef, queueRef)
 }
 
-class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl with ShareStoreCompImpl with DbConfig with AppConfig {
+class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl with ShareStoreCompImpl with DbConfig with AppConfig {
 
   import SenzHandlerActor._
   import context._
@@ -101,8 +102,6 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
       logger.debug(s"success write")
     case SenzMsg(senz: Senz, msg: String) =>
       logger.info(s"SenzMsg received $msg")
-
-      // TODO send ack back to confirm message received to switch
 
       senz match {
         case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
@@ -237,34 +236,27 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
     val senz = senzMsg.senz
     logger.info(s"DATA from senzie ${senz.sender}")
 
-    // handle streaming
-    senz.attributes.get("#stream") match {
-      case Some("on") =>
-        logger.debug(s"Streaming ON from ${senz.sender} to ${senz.receiver} ")
-        streaming = true
-        streamRef = SenzListenerActor.actorRefs(senz.receiver)
-      case Some("off") =>
-        streaming = false
-        logger.debug(s"Streaming OFF from ${senz.sender} to ${senz.receiver} ")
+    senz.receiver match {
+      case `switchName` =>
+        // this is status(delivery status most probably)
+        // dequeue
+        queueRef ! Dequeue(senz.attributes("uid"))
       case _ =>
-        logger.debug(s"Not streaming ")
-    }
+        // enqueue
+        queueRef ! Enqueue(QueueObj(senz.attributes("uid"), senzMsg))
 
-    // forward senz to receiver
-    if (streaming) {
-      logger.debug(s"Directly forward stream message")
-      streamRef ! Msg(senzMsg.data)
-    } else {
-      if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
-        logger.debug(s"Store contains actor with " + senz.receiver)
-        SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
-      } else {
-        logger.error(s"Store NOT contains actor with " + senz.receiver)
+        // forward message to receiver
+        // send status back to sender
+        if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
+          logger.debug(s"Store contains actor with " + senz.receiver)
+          SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
+        } else {
+          logger.error(s"Store NOT contains actor with " + senz.receiver)
 
-        // send offline message back
-        val payload = s"DATA #status offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
-        self ! Msg(crypto.sing(payload))
-      }
+          // send OFFLINE status back to sender
+          val payload = s"DATA #status OFFLINE #name ${senz.receiver} @${senz.sender} ^senzswitch"
+          self ! Msg(crypto.sing(payload))
+        }
     }
   }
 
@@ -290,6 +282,10 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
   def handlePing(senzMsg: SenzMsg) = {
     val senz = senzMsg.senz
     logger.debug(s"PING from senzie ${senz.sender}")
+
+    // ping means reconnect
+    // dispatch queued messages
+    queueRef ! Dispatch(self, name)
   }
 
 }

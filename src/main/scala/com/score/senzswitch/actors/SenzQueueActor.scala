@@ -1,7 +1,7 @@
 package com.score.senzswitch.actors
 
 import akka.actor.{Actor, ActorRef, Props}
-import com.score.senzswitch.protocols.SenzMsg
+import com.score.senzswitch.protocols.{Msg, SenzMsg}
 import org.slf4j.LoggerFactory
 
 object SenzQueueActor {
@@ -16,7 +16,7 @@ object SenzQueueActor {
 
   case class Dispatch(actorRef: ActorRef, user: String)
 
-  def props() = Props(classOf[SenzQueueActor])
+  def props = Props(classOf[SenzQueueActor])
 
 }
 
@@ -37,11 +37,19 @@ class SenzQueueActor extends Actor {
   override def receive = {
     case Enqueue(qObj) =>
       senzQueue += qObj
+
+      // send RECEIVED status back to sender
+      val payload = s"DATA #status RECEIVED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
+      SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
     case Dequeue(uid) =>
       senzQueue.find(qObj => qObj.uid.equalsIgnoreCase(uid)) match {
         case Some(qObj) =>
           // remove
           senzQueue -= qObj
+
+          // send DELIVERED status back to sender
+          val payload = s"DATA #status DELIVERED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch"
+          SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
         case None =>
           // no matcher
           logger.debug(s"no matching qobj for uid - $uid")

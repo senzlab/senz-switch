@@ -1,7 +1,7 @@
 package com.score.senzswitch.boot
 
 import akka.actor.ActorSystem
-import com.score.senzswitch.actors.SenzListenerActor
+import com.score.senzswitch.actors.{SenzListenerActor, SenzQueueActor}
 import com.score.senzswitch.utils.SenzFactory
 
 /**
@@ -18,4 +18,5 @@ object Main extends App {
   // start actor
   implicit val system = ActorSystem("senz")
   system.actorOf(SenzListenerActor.props, name = "SenzListener")
+  system.actorOf(SenzQueueActor.props, name = "SenzQueue")
 }
