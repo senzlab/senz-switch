@@ -102,6 +102,8 @@ class SenzHandlerActor(senderRef: ActorRef) extends Actor with KeyStoreCompImpl 
     case SenzMsg(senz: Senz, msg: String) =>
       logger.info(s"SenzMsg received $msg")
 
+      // TODO send ack back to confirm message received to switch
+
       senz match {
         case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
           name = senz.sender
