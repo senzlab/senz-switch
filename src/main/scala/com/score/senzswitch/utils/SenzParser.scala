@@ -77,9 +77,10 @@ object SenzParser {
 
 }
 
-//object Main extends App with ShareStoreCompImpl with Configuration {
-//  //val s = SenzParser.parse("SHARE #acc #amnt #key 4.34 #la $key ja @era ^ban digisg")
+//object Main extends App {
+//  val s = SenzParser.parseSenz("DATA #uid 701199546 #msg dhhd #time 1475851199 @lala ^hell MULQZ1jk9LUQ6/t72xeMeH40MLrE5TR9vAiBPnCa2tJMPRKbcT5AXfly9eR4Kaj1V93JdFLDz8be4rx0V91wUJxvSRT6FHWV6kk2tVlR90YYfWjwOeVr8aqDsLpRoHvwNJPIp+HU3/08tXXhghXFY0IvXrvV4viq+9mxkm6/IL0=")
+//  println(s.attributes)
 //  //println(SenzParser.compose(s))
 //  //shareStore.share(Array("eranga", "her"), "sdfs", "wer")
-//  shareStore.isShared("at", "sdf", "sdf")
+//  //shareStore.isShared("at", "sdf", "sdf")
 //}

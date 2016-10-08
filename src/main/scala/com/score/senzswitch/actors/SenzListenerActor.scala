@@ -11,10 +11,10 @@ import org.slf4j.LoggerFactory
 object SenzListenerActor {
   val actorRefs = scala.collection.mutable.LinkedHashMap[String, ActorRef]()
 
-  def props: Props = Props(new SenzListenerActor)
+  def props(queueRef: ActorRef): Props = Props(classOf[SenzListenerActor], queueRef)
 }
 
-class SenzListenerActor extends Actor with AppConfig {
+class SenzListenerActor(queueRef: ActorRef) extends Actor with AppConfig {
 
   import Tcp._
   import context.system
@@ -45,7 +45,7 @@ class SenzListenerActor extends Actor with AppConfig {
     case Tcp.Connected(remote, local) =>
       logger.info(s"Client connected from ${remote.getHostName}")
 
-      val handler = context.actorOf(SenzHandlerActor.props(sender))
+      val handler = context.actorOf(SenzHandlerActor.props(sender, queueRef))
       sender ! Tcp.Register(handler, keepOpenOnPeerClosed = true, useResumeWriting = true)
     case Tcp.CommandFailed(_: Bind) =>
       logger.error("Bind failed")

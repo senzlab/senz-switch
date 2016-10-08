@@ -36,27 +36,33 @@ class SenzQueueActor extends Actor {
 
   override def receive = {
     case Enqueue(qObj) =>
-      senzQueue += qObj
+      logger.debug(s"Enqueue with uid ${qObj.uid}")
+      if (!senzQueue.contains(qObj)) {
+        senzQueue += qObj
 
-      // send RECEIVED status back to sender
-      val payload = s"DATA #status RECEIVED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
-      SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
+        // send RECEIVED status back to sender
+        val payload = s"DATA #status RECEIVED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
+        SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
+      }
     case Dequeue(uid) =>
+      logger.debug(s"Dequeue with uid $uid")
+
       senzQueue.find(qObj => qObj.uid.equalsIgnoreCase(uid)) match {
         case Some(qObj) =>
           // remove
           senzQueue -= qObj
 
           // send DELIVERED status back to sender
-          val payload = s"DATA #status DELIVERED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch"
+          val payload = s"DATA #status DELIVERED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
           SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
         case None =>
           // no matcher
-          logger.debug(s"no matching qobj for uid - $uid")
+          logger.debug(s"no matching obj for uid - $uid")
       }
     case Dispatch(actorRef, user) =>
+      logger.debug(s"Dispatch queued messages to $user")
       // send buffered msgs again to actor
-      senzQueue.filter(qObj => qObj.senzMsg.senz.receiver.equalsIgnoreCase(user)).foreach(s => actorRef ! s.senzMsg)
+      senzQueue.filter(qObj => qObj.senzMsg.senz.receiver.equalsIgnoreCase(user)).foreach(s => actorRef ! Msg(s.senzMsg.data))
   }
 
 }

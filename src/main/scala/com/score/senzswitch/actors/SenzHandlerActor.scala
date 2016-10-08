@@ -201,23 +201,27 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
 
     senz.receiver match {
       case `switchName` =>
-        if (senz.attributes.contains("pubkey")) {
+        if (senz.attributes.contains("#pubkey")) {
           // public key of user
           // should be request for public key of other senzie
           // find senz key and send it back
-          val user = senz.attributes("name")
+          val user = senz.attributes("#name")
           val key = keyStore.findSenzieKey(user).get.key
           val payload = s"DATA #pubkey $key #name $user @${senz.sender} ^${senz.receiver}"
           self ! Msg(crypto.sing(payload))
-        } else if (senz.attributes.contains("status")) {
+        } else if (senz.attributes.contains("#status")) {
           // user online/offline status
-          val user = senz.attributes("name")
+          val user = senz.attributes("#name")
           val status = SenzListenerActor.actorRefs.contains(user)
           val payload = s"DATA #status $status #name $user @${senz.sender} ^${senz.receiver}"
           self ! Msg(crypto.sing(payload))
         }
       case _ =>
         // get senz for other senzie
+        // queue it first (only for #cam and #mic)
+        if (senz.attributes.contains("#cam") || senz.attributes.contains("#mic"))
+          queueRef ! Enqueue(QueueObj(senz.attributes("#uid"), senzMsg))
+
         // forward senz to receiver
         if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
           logger.debug(s"Store contains actor with " + senz.receiver)
@@ -226,7 +230,7 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 
           // send offline message back
-          val payload = s"DATA #status offline #name ${senz.receiver} @${senz.sender} ^senzswitch"
+          val payload = s"DATA #status OFFLINE #name ${senz.receiver} @${senz.sender} ^senzswitch"
           self ! Msg(crypto.sing(payload))
         }
     }
@@ -240,10 +244,11 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
       case `switchName` =>
         // this is status(delivery status most probably)
         // dequeue
-        queueRef ! Dequeue(senz.attributes("uid"))
+        queueRef ! Dequeue(senz.attributes("#uid"))
       case _ =>
-        // enqueue
-        queueRef ! Enqueue(QueueObj(senz.attributes("uid"), senzMsg))
+        // enqueue only DATA senz with values(not status)
+        if (senz.attributes.contains("#msg"))
+          queueRef ! Enqueue(QueueObj(senz.attributes("#uid"), senzMsg))
 
         // forward message to receiver
         // send status back to sender

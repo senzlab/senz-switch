@@ -17,6 +17,7 @@ object Main extends App {
 
   // start actor
   implicit val system = ActorSystem("senz")
-  system.actorOf(SenzListenerActor.props, name = "SenzListener")
-  system.actorOf(SenzQueueActor.props, name = "SenzQueue")
+  val queueRef = system.actorOf(SenzQueueActor.props, name = "SenzQueue")
+
+  system.actorOf(SenzListenerActor.props(queueRef), name = "SenzListener")
 }
