@@ -40,25 +40,28 @@ class SenzQueueActor extends Actor {
 
       if (qObj.senzMsg.senz.attributes.contains("#cam")) {
         // only keep one #cam message which correspond for receiver and sender in queue
-        senzQueue.find(qObj => qObj.senzMsg.senz.receiver.equalsIgnoreCase(qObj.senzMsg.senz.receiver) &&
-          qObj.senzMsg.senz.sender.equalsIgnoreCase(qObj.senzMsg.senz.sender) &&
-          qObj.senzMsg.senz.attributes.contains("#cam")) match {
+        senzQueue.find(obj => matchSenderReceiver(obj, qObj) && obj.senzMsg.senz.attributes.contains("#cam")) match {
           case Some(obj) =>
           case _ =>
-            append(qObj)
+            appendObj(qObj)
         }
       } else if (qObj.senzMsg.senz.attributes.contains("#mic")) {
         // only keep one #mic message which correspond for receiver and sender in queue
-        senzQueue.find(qObj => qObj.senzMsg.senz.receiver.equalsIgnoreCase(qObj.senzMsg.senz.receiver) &&
-          qObj.senzMsg.senz.sender.equalsIgnoreCase(qObj.senzMsg.senz.sender) &&
-          qObj.senzMsg.senz.attributes.contains("#mic")) match {
+        senzQueue.find(obj => matchSenderReceiver(obj, qObj) && obj.senzMsg.senz.attributes.contains("#mic")) match {
           case Some(obj) =>
           case _ =>
-            append(qObj)
+            appendObj(qObj)
+        }
+      } else if (qObj.senzMsg.senz.attributes.contains("#lat")) {
+        // only keep one #lat message which correspond for receiver and sender in queue
+        senzQueue.find(obj => matchSenderReceiver(obj, qObj) && qObj.senzMsg.senz.attributes.contains("#lat")) match {
+          case Some(obj) =>
+          case _ =>
+            appendObj(qObj)
         }
       } else if (qObj.senzMsg.senz.attributes.contains("#msg")) {
         // keep all #msg messages
-        append(qObj)
+        appendObj(qObj)
       }
     case Dequeue(uid) =>
       logger.debug(s"Dequeue with uid $uid")
@@ -81,12 +84,17 @@ class SenzQueueActor extends Actor {
       senzQueue.filter(qObj => qObj.senzMsg.senz.receiver.equalsIgnoreCase(user)).foreach(s => actorRef ! Msg(s.senzMsg.data))
   }
 
-  private def append(qObj: QueueObj) = {
+  private def appendObj(qObj: QueueObj) = {
     senzQueue += qObj
 
     // send RECEIVED status back to sender
     val payload = s"DATA #status RECEIVED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
     SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
+  }
+
+  private def matchSenderReceiver(qObj1: QueueObj, qObj2: QueueObj) = {
+    qObj1.senzMsg.senz.receiver.equalsIgnoreCase(qObj2.senzMsg.senz.receiver) &&
+      qObj1.senzMsg.senz.sender.equalsIgnoreCase(qObj2.senzMsg.senz.sender)
   }
 
 }

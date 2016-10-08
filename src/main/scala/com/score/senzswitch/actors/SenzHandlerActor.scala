@@ -219,7 +219,7 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
       case _ =>
         // get senz for other senzie
         // queue it first (only for #cam and #mic)
-        if (senz.attributes.contains("#cam") || senz.attributes.contains("#mic"))
+        if (senz.attributes.contains("#cam") || senz.attributes.contains("#mic") || senz.attributes.contains("lat"))
           queueRef ! Enqueue(QueueObj(senz.attributes("#uid"), senzMsg))
 
         // forward senz to receiver
