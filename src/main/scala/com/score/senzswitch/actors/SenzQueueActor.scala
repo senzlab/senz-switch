@@ -37,12 +37,28 @@ class SenzQueueActor extends Actor {
   override def receive = {
     case Enqueue(qObj) =>
       logger.debug(s"Enqueue with uid ${qObj.uid}")
-      if (!senzQueue.contains(qObj)) {
-        senzQueue += qObj
 
-        // send RECEIVED status back to sender
-        val payload = s"DATA #status RECEIVED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
-        SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
+      if (qObj.senzMsg.senz.attributes.contains("#cam")) {
+        // only keep one #cam message which correspond for receiver and sender in queue
+        senzQueue.find(qObj => qObj.senzMsg.senz.receiver.equalsIgnoreCase(qObj.senzMsg.senz.receiver) &&
+          qObj.senzMsg.senz.sender.equalsIgnoreCase(qObj.senzMsg.senz.sender) &&
+          qObj.senzMsg.senz.attributes.contains("#cam")) match {
+          case Some(obj) =>
+          case _ =>
+            append(qObj)
+        }
+      } else if (qObj.senzMsg.senz.attributes.contains("#mic")) {
+        // only keep one #mic message which correspond for receiver and sender in queue
+        senzQueue.find(qObj => qObj.senzMsg.senz.receiver.equalsIgnoreCase(qObj.senzMsg.senz.receiver) &&
+          qObj.senzMsg.senz.sender.equalsIgnoreCase(qObj.senzMsg.senz.sender) &&
+          qObj.senzMsg.senz.attributes.contains("#mic")) match {
+          case Some(obj) =>
+          case _ =>
+            append(qObj)
+        }
+      } else if (qObj.senzMsg.senz.attributes.contains("#msg")) {
+        // keep all #msg messages
+        append(qObj)
       }
     case Dequeue(uid) =>
       logger.debug(s"Dequeue with uid $uid")
@@ -63,6 +79,14 @@ class SenzQueueActor extends Actor {
       logger.debug(s"Dispatch queued messages to $user")
       // send buffered msgs again to actor
       senzQueue.filter(qObj => qObj.senzMsg.senz.receiver.equalsIgnoreCase(user)).foreach(s => actorRef ! Msg(s.senzMsg.data))
+  }
+
+  private def append(qObj: QueueObj) = {
+    senzQueue += qObj
+
+    // send RECEIVED status back to sender
+    val payload = s"DATA #status RECEIVED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
+    SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
   }
 
 }

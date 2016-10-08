@@ -247,8 +247,7 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
         queueRef ! Dequeue(senz.attributes("#uid"))
       case _ =>
         // enqueue only DATA senz with values(not status)
-        if (senz.attributes.contains("#msg"))
-          queueRef ! Enqueue(QueueObj(senz.attributes("#uid"), senzMsg))
+        queueRef ! Enqueue(QueueObj(senz.attributes("#uid"), senzMsg))
 
         // forward message to receiver
         // send status back to sender
