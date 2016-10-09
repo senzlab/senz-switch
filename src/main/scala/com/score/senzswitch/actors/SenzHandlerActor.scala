@@ -269,11 +269,6 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
     val senz = senzMsg.senz
     logger.info(s"STREAM from senzie ${senz.sender}")
 
-    if (senzMsg.senz.attributes.contains("#cam") && senzMsg.senz.attributes("#cam").equalsIgnoreCase("off")) {
-      // enqueue only stream off
-      queueRef ! Enqueue(QueueObj(senz.attributes("#uid"), senzMsg))
-    }
-
     if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
       logger.debug(s"Store contains actor with " + senz.receiver)
 

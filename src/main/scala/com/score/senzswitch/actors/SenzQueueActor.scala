@@ -59,7 +59,7 @@ class SenzQueueActor extends Actor {
           case _ =>
             enqueueObj(qObj)
         }
-      } else if (qObj.senzMsg.senz.attributes.contains("#msg") || containsStreamOff(qObj)) {
+      } else if (qObj.senzMsg.senz.attributes.contains("#msg")) {
         // keep all #msg messages
         enqueueObj(qObj)
       }
@@ -91,10 +91,6 @@ class SenzQueueActor extends Actor {
     // send RECEIVED status back to sender
     val payload = s"DATA #status RECEIVED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
     SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
-  }
-
-  private def containsStreamOff(qObj: QueueObj) = {
-    qObj.senzMsg.senz.attributes.contains("#cam") && qObj.senzMsg.senz.attributes("#cam").equalsIgnoreCase("off")
   }
 
   private def matchSenderReceiver(qObj1: QueueObj, qObj2: QueueObj) = {
