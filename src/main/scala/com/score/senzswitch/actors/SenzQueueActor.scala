@@ -43,25 +43,25 @@ class SenzQueueActor extends Actor {
         senzQueue.find(obj => matchSenderReceiver(obj, qObj) && obj.senzMsg.senz.attributes.contains("#cam")) match {
           case Some(obj) =>
           case _ =>
-            appendObj(qObj)
+            enqueueObj(qObj)
         }
       } else if (qObj.senzMsg.senz.attributes.contains("#mic")) {
         // only keep one #mic message which correspond for receiver and sender in queue
         senzQueue.find(obj => matchSenderReceiver(obj, qObj) && obj.senzMsg.senz.attributes.contains("#mic")) match {
           case Some(obj) =>
           case _ =>
-            appendObj(qObj)
+            enqueueObj(qObj)
         }
       } else if (qObj.senzMsg.senz.attributes.contains("#lat")) {
         // only keep one #lat message which correspond for receiver and sender in queue
         senzQueue.find(obj => matchSenderReceiver(obj, qObj) && qObj.senzMsg.senz.attributes.contains("#lat")) match {
           case Some(obj) =>
           case _ =>
-            appendObj(qObj)
+            enqueueObj(qObj)
         }
-      } else if (qObj.senzMsg.senz.attributes.contains("#msg")) {
+      } else if (qObj.senzMsg.senz.attributes.contains("#msg") || containsStreamOff(qObj)) {
         // keep all #msg messages
-        appendObj(qObj)
+        enqueueObj(qObj)
       }
     case Dequeue(uid) =>
       logger.debug(s"Dequeue with uid $uid")
@@ -81,15 +81,20 @@ class SenzQueueActor extends Actor {
     case Dispatch(actorRef, user) =>
       logger.debug(s"Dispatch queued messages to $user")
       // send buffered msgs again to actor
+      // not dispatch stream off messages
       senzQueue.filter(qObj => qObj.senzMsg.senz.receiver.equalsIgnoreCase(user)).foreach(s => actorRef ! Msg(s.senzMsg.data))
   }
 
-  private def appendObj(qObj: QueueObj) = {
+  private def enqueueObj(qObj: QueueObj) = {
     senzQueue += qObj
 
     // send RECEIVED status back to sender
     val payload = s"DATA #status RECEIVED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
     SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
+  }
+
+  private def containsStreamOff(qObj: QueueObj) = {
+    qObj.senzMsg.senz.attributes.contains("#cam") && qObj.senzMsg.senz.attributes("#cam").equalsIgnoreCase("off")
   }
 
   private def matchSenderReceiver(qObj1: QueueObj, qObj2: QueueObj) = {

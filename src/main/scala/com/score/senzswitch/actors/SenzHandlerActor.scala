@@ -247,7 +247,8 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
         queueRef ! Dequeue(senz.attributes("#uid"))
       case _ =>
         // enqueue only DATA senz with values(not status)
-        queueRef ! Enqueue(QueueObj(senz.attributes("#uid"), senzMsg))
+        if (senz.attributes.contains("#msg"))
+          queueRef ! Enqueue(QueueObj(senz.attributes("#uid"), senzMsg))
 
         // forward message to receiver
         // send status back to sender
@@ -267,6 +268,11 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
   def handlerStream(senzMsg: SenzMsg) = {
     val senz = senzMsg.senz
     logger.info(s"STREAM from senzie ${senz.sender}")
+
+    if (senzMsg.senz.attributes.contains("#cam") && senzMsg.senz.attributes("#cam").equalsIgnoreCase("off")) {
+      // enqueue only stream off
+      queueRef ! Enqueue(QueueObj(senz.attributes("#uid"), senzMsg))
+    }
 
     if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
       logger.debug(s"Store contains actor with " + senz.receiver)
