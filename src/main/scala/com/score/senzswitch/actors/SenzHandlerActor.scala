@@ -38,15 +38,13 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
 
   var buffRef: ActorRef = _
 
-  var streaming: Boolean = _
-
   var streamRef: ActorRef = _
 
   var failedSenz = new ListBuffer[Any]
 
   context watch senderRef
 
-  val takCancel = system.scheduler.schedule(0.seconds, 60.seconds, self, Tak)
+  //val takCancel = system.scheduler.schedule(0.seconds, 60.seconds, self, Tak)
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
@@ -57,7 +55,7 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
   override def postStop() = {
     logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $name")
 
-    takCancel.cancel()
+    //takCancel.cancel()
 
     SenzListenerActor.actorRefs.remove(name)
   }
@@ -93,6 +91,7 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
     case Tak =>
       logger.debug(s"TAK tobe send")
       senderRef ! Tcp.Write(ByteString(s"TAK\n\r"))
+      Tcp.SO.KeepAlive
     case Tuk =>
       logger.debug(s"Timeout/Tuk message")
     case Msg(data) =>
