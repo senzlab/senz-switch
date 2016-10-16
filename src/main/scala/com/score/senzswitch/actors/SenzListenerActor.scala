@@ -49,7 +49,7 @@ class SenzListenerActor(queueRef: ActorRef) extends Actor with AppConfig {
       logger.info(s"Client connected from ${remote.getHostName}")
 
       val handler = context.actorOf(SenzHandlerActor.props(sender, queueRef))
-      sender ! Tcp.Register(handler, keepOpenOnPeerClosed = true, useResumeWriting = true)
+      sender ! Tcp.Register(handler, useResumeWriting = true)
     case Tcp.CommandFailed(_: Bind) =>
       logger.error("Bind failed")
       context stop self
