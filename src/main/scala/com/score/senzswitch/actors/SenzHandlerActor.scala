@@ -12,7 +12,6 @@ import com.score.senzswitch.protocols._
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration._
 
 object SenzHandlerActor {
 
@@ -30,21 +29,17 @@ object SenzHandlerActor {
 class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl with ShareStoreCompImpl with DbConfig with AppConfig {
 
   import SenzHandlerActor._
-  import context._
 
   def logger = LoggerFactory.getLogger(this.getClass)
 
-  var name: String = _
+  var actorName: String = _
+  var ref: Ref = _
 
   var buffRef: ActorRef = _
-
-  var streamRef: ActorRef = _
 
   var failedSenz = new ListBuffer[Any]
 
   context watch senderRef
-
-  //val takCancel = system.scheduler.schedule(0.seconds, 60.seconds, self, Tak)
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
@@ -53,11 +48,22 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
   }
 
   override def postStop() = {
-    logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $name")
+    logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $actorName")
 
-    //takCancel.cancel()
+    // remove ref
+    SenzListenerActor.actorRefs.get(actorName) match {
+      case Some(Ref(_, actorId)) =>
+        if (ref.actorId.id == actorId.id) {
+          // same actor, so remove it
+          SenzListenerActor.actorRefs.remove(actorName)
 
-    SenzListenerActor.actorRefs.remove(name)
+          logger.info(s"Remove actor with id $actorId")
+        } else {
+          logger.info(s"Nothing to remove actor id mismatch $actorId : ${ref.actorId.id}")
+        }
+      case None =>
+        logger.debug(s"No actor found with $actorName")
+    }
   }
 
   override def receive = {
@@ -69,12 +75,12 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
       buffRef ! buf
     case Tcp.CommandFailed(Write(data, ack)) =>
       val msg = data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", "")
-      logger.warn(s"Failed to write $msg to socket from $name")
+      logger.warn(s"Failed to write $msg to socket from $actorName")
 
       failedSenz += Write(data, ack)
       senderRef ! ResumeWriting
     case Tcp.WritingResumed =>
-      logger.debug(s"Write resumed of $name")
+      logger.debug(s"Write resumed of $actorName")
       failedSenz.foreach(write => senderRef ! write)
       failedSenz.clear()
     case Tcp.PeerClosed =>
@@ -91,11 +97,10 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
     case Tak =>
       logger.debug(s"TAK tobe send")
       senderRef ! Tcp.Write(ByteString(s"TAK\n\r"))
-      Tcp.SO.KeepAlive
     case Tuk =>
       logger.debug(s"Timeout/Tuk message")
     case Msg(data) =>
-      logger.info(s"Send senz message $data to user $name with SenzAck")
+      logger.info(s"Send senz message $data to user $actorName with SenzAck")
       senderRef ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
     case SenzAck =>
       logger.debug(s"success write")
@@ -104,34 +109,16 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
 
       senz match {
         case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
-          name = senz.sender
-          SenzListenerActor.actorRefs.put(name, self)
-
           handleShare(SenzMsg(senz, msg))
         case Senz(SenzType.GET, sender, receiver, attr, signature) =>
-          name = senz.sender
-          SenzListenerActor.actorRefs.put(name, self)
-
           handleGet(SenzMsg(senz, msg))
         case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
-          name = senz.sender
-          SenzListenerActor.actorRefs.put(name, self)
-
           handleData(SenzMsg(senz, msg))
         case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
-          name = senz.sender
-          SenzListenerActor.actorRefs.put(name, self)
-
           handlePut(SenzMsg(senz, msg))
         case Senz(SenzType.STREAM, sender, receiver, attr, signature) =>
-          name = senz.sender
-          SenzListenerActor.actorRefs.put(name, self)
-
           handlerStream(SenzMsg(senz, msg))
         case Senz(SenzType.PING, sender, receiver, attr, signature) =>
-          name = senz.sender
-          SenzListenerActor.actorRefs.put(name, self)
-
           handlePing(SenzMsg(senz, msg))
         case Senz(SenzType.TIK, _, _, _, _) =>
         // do nothing
@@ -144,32 +131,45 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
       case `switchName` =>
         // should be public key sharing
         // store public key, store actor
-        val send = senz.sender
+        val senzSender = senz.sender
         val key = senz.attributes("#pubkey")
-        keyStore.findSenzieKey(name) match {
-          case Some(SenzKey(`send`, `key`)) =>
-            logger.debug(s"Have senzie with name $name and key $key")
+        keyStore.findSenzieKey(senzSender) match {
+          case Some(SenzKey(`senzSender`, `key`)) =>
+            logger.debug(s"Have senzie with name $senzSender and key $key")
+
+            // popup refs
+            actorName = senzMsg.senz.sender
+            ref = Ref(self)
+            SenzListenerActor.actorRefs.put(actorName, ref)
+
+            logger.debug(s"added ref with ${ref.actorId.id}")
 
             // share from already registered senzie
             val payload = s"DATA #status 601 #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
             self ! Msg(crypto.sing(payload))
           case Some(SenzKey(_, _)) =>
-            logger.error(s"Have senzie with name $name")
+            logger.error(s"Have senzie with name $actorName")
 
             // user already exists
             // send error
-            // reply share done msg
             val payload = s"DATA #status 602 #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
             self ! Msg(crypto.sing(payload))
 
             //context.stop(self)
             self ! PoisonPill
           case _ =>
-            logger.debug("No senzies with name " + name)
+            logger.debug("No senzies with name " + actorName)
+
+            // popup refs
+            actorName = senzMsg.senz.sender
+            ref = Ref(self)
+            SenzListenerActor.actorRefs.put(actorName, ref)
+
+            logger.debug(s"added ref with ${ref.actorId.id}")
 
             keyStore.saveSenzieKey(SenzKey(senz.sender, senz.attributes("#pubkey")))
 
-            logger.debug(s"Registration done of senzie $name")
+            logger.debug(s"Registration done of senzie $actorName")
 
             // reply share done msg
             val payload = s"DATA #status 600 #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
@@ -178,12 +178,12 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
       case _ =>
         // share senz for other senzie
         // forward senz to receiver
-        logger.debug(s"SHARE from senzie $name")
+        logger.debug(s"SHARE from senzie $actorName")
         if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
           // mark as shared attributes
-          //shareStore.share(senz.sender, senz.receiver, senz.attributes.keySet.toList)
+          // shareStore.share(senz.sender, senz.receiver, senz.attributes.keySet.toList)
 
-          SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
+          SenzListenerActor.actorRefs(senz.receiver).actorRef ! Msg(senzMsg.data)
         } else {
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 
@@ -224,7 +224,7 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
         // forward senz to receiver
         if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
           logger.debug(s"Store contains actor with " + senz.receiver)
-          SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
+          SenzListenerActor.actorRefs(senz.receiver).actorRef ! Msg(senzMsg.data)
         } else {
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 
@@ -253,7 +253,7 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
         // send status back to sender
         if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
           logger.debug(s"Store contains actor with " + senz.receiver)
-          SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
+          SenzListenerActor.actorRefs(senz.receiver).actorRef ! Msg(senzMsg.data)
         } else {
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 
@@ -272,7 +272,7 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
       logger.debug(s"Store contains actor with " + senz.receiver)
 
       // not verify streams, instead directly send them
-      SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
+      SenzListenerActor.actorRefs(senz.receiver).actorRef ! Msg(senzMsg.data)
     } else {
       logger.error(s"Store NOT contains actor with " + senz.receiver)
     }
@@ -284,12 +284,19 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
   }
 
   def handlePing(senzMsg: SenzMsg) = {
+    // popup refs
+    actorName = senzMsg.senz.sender
+    ref = Ref(self)
+    SenzListenerActor.actorRefs.put(actorName, ref)
+
+    logger.debug(s"added ref with ${ref.actorId.id}")
+
     val senz = senzMsg.senz
     logger.debug(s"PING from senzie ${senz.sender}")
 
     // ping means reconnect
     // dispatch queued messages
-    queueRef ! Dispatch(self, name)
+    queueRef ! Dispatch(self, actorName)
   }
 
 }

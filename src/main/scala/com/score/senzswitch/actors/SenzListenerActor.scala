@@ -7,10 +7,11 @@ import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props}
 import akka.io.Tcp.SO.KeepAlive
 import akka.io.{IO, Tcp}
 import com.score.senzswitch.config.AppConfig
+import com.score.senzswitch.protocols.Ref
 import org.slf4j.LoggerFactory
 
 object SenzListenerActor {
-  val actorRefs = scala.collection.mutable.LinkedHashMap[String, ActorRef]()
+  val actorRefs = scala.collection.mutable.LinkedHashMap[String, Ref]()
 
   def props(queueRef: ActorRef): Props = Props(classOf[SenzListenerActor], queueRef)
 }

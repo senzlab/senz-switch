@@ -4,5 +4,5 @@ import akka.actor.ActorRef
 
 case class ActorId(id: Long)
 
-case class ActorRefObj(actorRef: ActorRef, id: ActorId = ActorId(System.currentTimeMillis / 1000))
+case class Ref(actorRef: ActorRef, actorId: ActorId = ActorId(System.currentTimeMillis / 1000))
 
