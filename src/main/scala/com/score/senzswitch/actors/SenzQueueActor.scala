@@ -79,7 +79,7 @@ class SenzQueueActor extends Actor {
           logger.debug(s"no matching obj for uid - $uid")
       }
     case Dispatch(actorRef, user) =>
-      logger.debug(s"Dispatch queued messages to $user")
+      logger.info(s"Dispatch queued messages to $user")
       // send buffered msgs again to actor
       // not dispatch stream off messages
       senzQueue.filter(qObj => qObj.senzMsg.senz.receiver.equalsIgnoreCase(user)).foreach(s => actorRef ! Msg(s.senzMsg.data))

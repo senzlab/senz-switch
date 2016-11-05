@@ -12,6 +12,7 @@ import com.score.senzswitch.protocols._
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration._
 
 object SenzHandlerActor {
 
@@ -23,12 +24,13 @@ object SenzHandlerActor {
 
   case object Tuk
 
-  def props(senderRef: ActorRef, queueRef: ActorRef) = Props(classOf[SenzHandlerActor], senderRef, queueRef)
+  def props(connection: ActorRef, queueRef: ActorRef) = Props(classOf[SenzHandlerActor], connection, queueRef)
 }
 
-class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl with ShareStoreCompImpl with DbConfig with AppConfig {
+class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor with KeyStoreCompImpl with CryptoCompImpl with ActorStoreCompImpl with ShareStoreCompImpl with DbConfig with AppConfig {
 
   import SenzHandlerActor._
+  import context._
 
   def logger = LoggerFactory.getLogger(this.getClass)
 
@@ -39,7 +41,9 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
 
   var failedSenz = new ListBuffer[Any]
 
-  context watch senderRef
+  context watch connection
+
+  val takCancel = system.scheduler.schedule(0.seconds, 60.seconds, self, Tak)
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
@@ -78,55 +82,68 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
       logger.warn(s"Failed to write $msg to socket from $actorName")
 
       failedSenz += Write(data, ack)
-      senderRef ! ResumeWriting
-    case Tcp.WritingResumed =>
-      logger.debug(s"Write resumed of $actorName")
-      failedSenz.foreach(write => senderRef ! write)
-      failedSenz.clear()
+
+      connection ! ResumeWriting
+      context become buffering
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
       context stop self
-    case _: Tcp.ConnectionClosed =>
-      logger.error("Remote host connection lost")
-      context stop self
-    case Tcp.Aborted =>
-      logger.error("Remote host Aborted")
-    case Terminated(`senderRef`) =>
-      logger.info("Actor terminated " + senderRef.path)
-      context stop self
     case Tak =>
-      logger.debug(s"TAK tobe send")
-      senderRef ! Tcp.Write(ByteString(s"TAK\n\r"))
-    case Tuk =>
-      logger.debug(s"Timeout/Tuk message")
+      logger.debug(s"TAK tobe send to $actorName")
+      connection ! Tcp.Write(ByteString(s"TAK\n\r"))
     case Msg(data) =>
-      logger.info(s"Send senz message $data to user $actorName with SenzAck")
-      senderRef ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
-    case SenzAck =>
-      logger.debug(s"success write")
+      logger.debug(s"Send senz message $data to user $actorName with SenzAck")
+      connection ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
     case SenzMsg(senz: Senz, msg: String) =>
-      logger.info(s"SenzMsg received $msg")
-
-      senz match {
-        case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
-          handleShare(SenzMsg(senz, msg))
-        case Senz(SenzType.GET, sender, receiver, attr, signature) =>
-          handleGet(SenzMsg(senz, msg))
-        case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
-          handleData(SenzMsg(senz, msg))
-        case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
-          handlePut(SenzMsg(senz, msg))
-        case Senz(SenzType.STREAM, sender, receiver, attr, signature) =>
-          handlerStream(SenzMsg(senz, msg))
-        case Senz(SenzType.PING, sender, receiver, attr, signature) =>
-          handlePing(SenzMsg(senz, msg))
-        case Senz(SenzType.TIK, _, _, _, _) =>
-        // do nothing
-      }
+      logger.debug(s"SenzMsg received $msg")
+      onSenzMsg(senz, msg)
   }
 
-  def handleShare(senzMsg: SenzMsg) = {
+  def buffering: Receive = {
+    case Tcp.Received(senzIn) =>
+      val senz = senzIn.decodeString("UTF-8")
+      logger.debug("Senz received " + senz)
+
+      val buf = Buf(senz)
+      buffRef ! buf
+    case Tcp.WritingResumed =>
+      logger.info(s"Write resumed of $actorName with ${failedSenz.size} writes")
+      failedSenz.foreach(write => connection ! write)
+      failedSenz.clear()
+
+      context unbecome
+    case Tcp.PeerClosed =>
+      logger.info("Peer Closed")
+      context stop self
+    case Msg(data) =>
+      logger.info(s"Msg $data to $actorName while buffering")
+      failedSenz += Write(ByteString(s"$data\n\r"), SenzAck)
+    case SenzMsg(senz: Senz, msg: String) =>
+      logger.debug(s"SenzMsg received $msg")
+      onSenzMsg(senz, msg)
+  }
+
+  def onSenzMsg(senz: Senz, msg: String) = {
+    senz match {
+      case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
+        onShare(SenzMsg(senz, msg))
+      case Senz(SenzType.GET, sender, receiver, attr, signature) =>
+        onGet(SenzMsg(senz, msg))
+      case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
+        onData(SenzMsg(senz, msg))
+      case Senz(SenzType.STREAM, sender, receiver, attr, signature) =>
+        onStream(SenzMsg(senz, msg))
+      case Senz(SenzType.PING, sender, receiver, attr, signature) =>
+        onPing(SenzMsg(senz, msg))
+      case Senz(SenzType.TIK, _, _, _, _) =>
+      // do nothing
+    }
+  }
+
+  def onShare(senzMsg: SenzMsg) = {
     val senz = senzMsg.senz
+    logger.info(s"SHARE from senzie ${senz.sender} to ${senz.receiver}")
+
     senz.receiver match {
       case `switchName` =>
         // should be public key sharing
@@ -194,9 +211,9 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
     }
   }
 
-  def handleGet(senzMsg: SenzMsg) = {
+  def onGet(senzMsg: SenzMsg) = {
     val senz = senzMsg.senz
-    logger.debug(s"GET from senzie ${senz.sender}")
+    logger.info(s"GET from senzie ${senz.sender} to ${senz.receiver}")
 
     senz.receiver match {
       case `switchName` =>
@@ -235,9 +252,9 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
     }
   }
 
-  def handleData(senzMsg: SenzMsg) = {
+  def onData(senzMsg: SenzMsg) = {
     val senz = senzMsg.senz
-    logger.info(s"DATA from senzie ${senz.sender}")
+    logger.info(s"DATA from senzie ${senz.sender} to ${senz.receiver}")
 
     senz.receiver match {
       case `switchName` =>
@@ -264,9 +281,9 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
     }
   }
 
-  def handlerStream(senzMsg: SenzMsg) = {
+  def onStream(senzMsg: SenzMsg) = {
     val senz = senzMsg.senz
-    logger.info(s"STREAM from senzie ${senz.sender}")
+    logger.info(s"STREAM from senzie ${senz.sender} to ${senz.receiver}")
 
     if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
       logger.debug(s"Store contains actor with " + senz.receiver)
@@ -278,21 +295,16 @@ class SenzHandlerActor(senderRef: ActorRef, queueRef: ActorRef) extends Actor wi
     }
   }
 
-  def handlePut(senzMsg: SenzMsg) = {
+  def onPing(senzMsg: SenzMsg) = {
     val senz = senzMsg.senz
-    logger.debug(s"PUT from senzie ${senz.sender}")
-  }
+    logger.info(s"PING from senzie ${senz.sender}")
 
-  def handlePing(senzMsg: SenzMsg) = {
     // popup refs
-    actorName = senzMsg.senz.sender
+    actorName = senz.sender
     ref = Ref(self)
     SenzListenerActor.actorRefs.put(actorName, ref)
 
     logger.debug(s"added ref with ${ref.actorId.id}")
-
-    val senz = senzMsg.senz
-    logger.debug(s"PING from senzie ${senz.sender}")
 
     // ping means reconnect
     // dispatch queued messages
