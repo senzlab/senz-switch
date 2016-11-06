@@ -16,7 +16,7 @@ import scala.concurrent.duration._
 
 object SenzHandlerActor {
 
-  case object SenzAck extends Event
+  case class SenzAck(offset: Int) extends Event
 
   case object Tak
 
@@ -39,7 +39,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
   var buffRef: ActorRef = _
 
-  var failedSenz = new ListBuffer[Any]
+  var failedSenz = new ListBuffer[Write]
 
   context watch connection
 
@@ -70,7 +70,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     }
   }
 
-  override def receive = {
+  override def receive: Receive = {
     case Tcp.Received(senzIn) =>
       val senz = senzIn.decodeString("UTF-8")
       logger.debug("Senz received " + senz)
@@ -79,12 +79,12 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
       buffRef ! buf
     case Tcp.CommandFailed(Write(data, ack)) =>
       val msg = data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", "")
-      logger.warn(s"Failed to write $msg to socket from $actorName")
+      logger.warn(s"Failed to write $msg to socket on $actorName")
 
       failedSenz += Write(data, ack)
 
       connection ! ResumeWriting
-      context become buffering
+      context.become(buffering, discardOld = false)
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
       context stop self
@@ -93,7 +93,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
       connection ! Tcp.Write(ByteString(s"TAK\n\r"))
     case Msg(data) =>
       logger.debug(s"Send senz message $data to user $actorName with SenzAck")
-      connection ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
+      connection ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck(2))
     case SenzMsg(senz: Senz, msg: String) =>
       logger.debug(s"SenzMsg received $msg")
       onSenzMsg(senz, msg)
@@ -102,22 +102,25 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
   def buffering: Receive = {
     case Tcp.Received(senzIn) =>
       val senz = senzIn.decodeString("UTF-8")
-      logger.debug("Senz received " + senz)
+      logger.info("Senz received while buffering...... " + senz)
 
       val buf = Buf(senz)
       buffRef ! buf
     case Tcp.WritingResumed =>
       logger.info(s"Write resumed of $actorName with ${failedSenz.size} writes")
-      failedSenz.foreach(write => connection ! write)
+      failedSenz.foreach { write =>
+        logger.info(s"Rewriting --- ${write.data.decodeString("UTF-8")}")
+        connection ! write
+      }
       failedSenz.clear()
 
-      context unbecome
+      context.unbecome()
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
       context stop self
     case Msg(data) =>
       logger.info(s"Msg $data to $actorName while buffering")
-      failedSenz += Write(ByteString(s"$data\n\r"), SenzAck)
+      failedSenz += Write(ByteString(s"$data\n\r"), SenzAck(1))
     case SenzMsg(senz: Senz, msg: String) =>
       logger.debug(s"SenzMsg received $msg")
       onSenzMsg(senz, msg)

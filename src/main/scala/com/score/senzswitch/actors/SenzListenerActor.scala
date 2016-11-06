@@ -4,7 +4,6 @@ import java.net.InetSocketAddress
 
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props}
-import akka.io.Tcp.SO.KeepAlive
 import akka.io.{IO, Tcp}
 import com.score.senzswitch.config.AppConfig
 import com.score.senzswitch.protocols.Ref
@@ -23,8 +22,7 @@ class SenzListenerActor(queueRef: ActorRef) extends Actor with AppConfig {
 
   def logger = LoggerFactory.getLogger(this.getClass)
 
-  val socOp = List(KeepAlive(true))
-  IO(Tcp) ! Bind(self, new InetSocketAddress(switchPort), options = socOp)
+  IO(Tcp) ! Bind(self, new InetSocketAddress(switchPort))
 
   override def preStart() = {
     logger.info("[_________START ACTOR__________] " + context.self.path)
