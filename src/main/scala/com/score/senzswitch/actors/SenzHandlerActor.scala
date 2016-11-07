@@ -43,7 +43,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
   context watch connection
 
-  val takCancel = system.scheduler.schedule(0.seconds, 60.seconds, self, Tak)
+  val takCancel = system.scheduler.schedule(60.seconds, 60.seconds, self, Tak)
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
@@ -84,7 +84,14 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
       failedSenz += Write(data, ack)
 
       connection ! ResumeWriting
-      context.become(buffering, discardOld = false)
+      //context.become(buffering, discardOld = false)
+    case Tcp.WritingResumed =>
+      logger.info(s"Write resumed of $actorName with ${failedSenz.size} writes")
+      failedSenz.foreach { write =>
+        logger.info(s"Rewriting --- ${write.data.decodeString("UTF-8")}")
+        connection ! write
+      }
+      failedSenz.clear()
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
       context stop self
@@ -176,7 +183,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
             self ! Msg(crypto.sing(payload))
 
             //context.stop(self)
-            self ! PoisonPill
+            //self ! PoisonPill
           case _ =>
             logger.debug("No senzies with name " + actorName)
 
