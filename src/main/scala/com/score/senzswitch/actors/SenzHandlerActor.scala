@@ -2,7 +2,7 @@ package com.score.senzswitch.actors
 
 import akka.actor._
 import akka.io.Tcp
-import akka.io.Tcp.{Event, ResumeWriting, Write}
+import akka.io.Tcp.{Event, Write}
 import akka.util.ByteString
 import com.score.senzswitch.actors.SenzBufferActor.Buf
 import com.score.senzswitch.actors.SenzQueueActor.{Dequeue, Dispatch, Enqueue, QueueObj}
@@ -16,7 +16,7 @@ import scala.concurrent.duration._
 
 object SenzHandlerActor {
 
-  case class SenzAck(offset: Int) extends Event
+  case object SenzAck extends Event
 
   case object Tak
 
@@ -41,9 +41,11 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
   var failedSenz = new ListBuffer[Write]
 
+  var senzBuffer = new ListBuffer[Msg]
+
   context watch connection
 
-  val takCancel = system.scheduler.schedule(60.seconds, 60.seconds, self, Tak)
+  val takCancel = system.scheduler.schedule(60.seconds, 60.seconds, self, Msg("TAK"))
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
@@ -77,14 +79,6 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
       val buf = Buf(senz)
       buffRef ! buf
-    case Tcp.CommandFailed(Write(data, ack)) =>
-      val msg = data.decodeString("UTF-8").replaceAll("\n", "").replaceAll("\r", "")
-      logger.warn(s"Failed to write $msg to socket on $actorName")
-
-      failedSenz += Write(data, ack)
-
-      connection ! ResumeWriting
-      //context.become(buffering, discardOld = false)
     case Tcp.WritingResumed =>
       logger.info(s"Write resumed of $actorName with ${failedSenz.size} writes")
       failedSenz.foreach { write =>
@@ -95,12 +89,36 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
       context stop self
-    case Tak =>
-      logger.debug(s"TAK tobe send to $actorName")
-      connection ! Tcp.Write(ByteString(s"TAK\n\r"))
     case Msg(data) =>
       logger.debug(s"Send senz message $data to user $actorName with SenzAck")
-      connection ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck(2))
+      connection ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
+      context.become({
+        case Tcp.Received(senzIn) =>
+          val senz = senzIn.decodeString("UTF-8")
+          logger.debug("Senz received ack.." + senz)
+
+          val buf = Buf(senz)
+          buffRef ! buf
+        case Tcp.PeerClosed =>
+          context stop self
+        case msg: Msg =>
+          logger.debug("Msg received ack.." + msg.data)
+          senzBuffer += msg
+        case SenzAck =>
+          logger.debug("Ack recived...")
+          if (senzBuffer.isEmpty) {
+            logger.debug("Empty buffer ...")
+            context unbecome()
+          } else {
+            logger.debug("Non empty buffer, write again ...")
+            val w = senzBuffer.head
+            senzBuffer.remove(0)
+            connection ! Tcp.Write(ByteString(s"${w.data}\n\r"), SenzAck)
+          }
+        case SenzMsg(senz: Senz, msg: String) =>
+          logger.debug(s"SenzMsg received ACk... $msg")
+          onSenzMsg(senz, msg)
+      }, discardOld = false)
     case SenzMsg(senz: Senz, msg: String) =>
       logger.debug(s"SenzMsg received $msg")
       onSenzMsg(senz, msg)
@@ -127,7 +145,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
       context stop self
     case Msg(data) =>
       logger.info(s"Msg $data to $actorName while buffering")
-      failedSenz += Write(ByteString(s"$data\n\r"), SenzAck(1))
+      failedSenz += Write(ByteString(s"$data\n\r"), SenzAck)
     case SenzMsg(senz: Senz, msg: String) =>
       logger.debug(s"SenzMsg received $msg")
       onSenzMsg(senz, msg)
@@ -182,8 +200,8 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
             val payload = s"DATA #status 602 #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
             self ! Msg(crypto.sing(payload))
 
-            //context.stop(self)
-            //self ! PoisonPill
+          //context.stop(self)
+          //self ! PoisonPill
           case _ =>
             logger.debug("No senzies with name " + actorName)
 
