@@ -105,7 +105,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
           logger.debug("Msg received ack.." + msg.data)
           senzBuffer += msg
         case SenzAck =>
-          logger.debug("Ack recived...")
+          logger.debug("Ack received...")
           if (senzBuffer.isEmpty) {
             logger.debug("Empty buffer ...")
             context unbecome()
@@ -251,7 +251,8 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
           // find senz key and send it back
           val user = senz.attributes("#name")
           val key = keyStore.findSenzieKey(user).get.key
-          val payload = s"DATA #pubkey $key #name $user @${senz.sender} ^${senz.receiver}"
+          val uid = senz.attributes("#uid")
+          val payload = s"DATA #pubkey $key #name $user #uid $uid @${senz.sender} ^${senz.receiver}"
           self ! Msg(crypto.sing(payload))
         } else if (senz.attributes.contains("#status")) {
           // user online/offline status
@@ -291,7 +292,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
         queueRef ! Dequeue(senz.attributes("#uid"))
       case _ =>
         // enqueue only DATA senz with values(not status)
-        if (senz.attributes.contains("#msg"))
+        if (senz.attributes.contains("#msg") || senz.attributes.contains("$msg"))
           queueRef ! Enqueue(QueueObj(senz.attributes("#uid"), senzMsg))
 
         // forward message to receiver

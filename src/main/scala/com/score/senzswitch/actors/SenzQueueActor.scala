@@ -59,7 +59,7 @@ class SenzQueueActor extends Actor {
           case _ =>
             enqueueObj(qObj)
         }
-      } else if (qObj.senzMsg.senz.attributes.contains("#msg")) {
+      } else if (qObj.senzMsg.senz.attributes.contains("#msg") || qObj.senzMsg.senz.attributes.contains("$msg")) {
         // keep all #msg messages
         enqueueObj(qObj)
       }
