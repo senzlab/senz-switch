@@ -45,7 +45,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
   context watch connection
 
-  val takCancel = system.scheduler.schedule(60.seconds, 60.seconds, self, Msg("TAK"))
+  val takCancel = system.scheduler.schedule(60.seconds, 120.seconds, self, Msg("TAK"))
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
@@ -163,7 +163,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
         onStream(SenzMsg(senz, msg))
       case Senz(SenzType.PING, sender, receiver, attr, signature) =>
         onPing(SenzMsg(senz, msg))
-      case Senz(SenzType.TIK, _, _, _, _) =>
+      case _ =>
       // do nothing
     }
   }
