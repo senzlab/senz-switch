@@ -39,8 +39,10 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
   var buffRef: ActorRef = _
 
+  // keep write failed msgs
   var failedSenz = new ListBuffer[Write]
 
+  // keep msgs when waiting for an ack
   var senzBuffer = new ListBuffer[Msg]
 
   context watch connection
@@ -51,9 +53,6 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
 
     buffRef = context.actorOf(SenzBufferActor.props(self))
-
-    // send TAK on connect
-    self ! Msg("TAK")
   }
 
   override def postStop() = {
@@ -95,35 +94,41 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
       logger.info("Peer Closed")
       context stop self
     case Msg(data) =>
-      logger.debug(s"Send senz message $data to user $actorName with SenzAck")
-      connection ! Tcp.Write(ByteString(s"$data;"), SenzAck)
-      context.become({
-        case Tcp.Received(senzIn) =>
-          val senz = senzIn.decodeString("UTF-8")
-          logger.debug(s"Senz received ack $senz")
+      if (actorName != null) {
+        // send data when only having actor name
+        logger.debug(s"Send senz message $data to user $actorName with SenzAck")
+        connection ! Tcp.Write(ByteString(s"$data;"), SenzAck)
+        context.become({
+          case Tcp.Received(senzIn) =>
+            val senz = senzIn.decodeString("UTF-8")
+            logger.debug(s"Senz received while while waiting for ack: $senz")
 
-          val buf = Buf(senz)
-          buffRef ! buf
-        case Tcp.PeerClosed =>
-          context stop self
-        case msg: Msg =>
-          logger.debug(s"Msg received ack ${msg.data}")
-          senzBuffer += msg
-        case SenzAck =>
-          logger.debug("Ack received")
-          if (senzBuffer.isEmpty) {
-            logger.debug("Empty buffer")
-            context unbecome()
-          } else {
-            logger.debug("Non empty buffer, write again")
-            val w = senzBuffer.head
-            senzBuffer.remove(0)
-            connection ! Tcp.Write(ByteString(s"${w.data};"), SenzAck)
-          }
-        case SenzMsg(senz: Senz, msg: String) =>
-          logger.debug(s"SenzMsg received ACk $msg")
-          onSenzMsg(senz, msg)
-      }, discardOld = false)
+            val buf = Buf(senz)
+            buffRef ! buf
+          case Tcp.PeerClosed =>
+            context stop self
+          case msg: Msg =>
+            logger.debug(s"Msg received while waiting for ack: ${msg.data}")
+            senzBuffer += msg
+          case SenzAck =>
+            logger.debug("Ack received")
+            if (senzBuffer.isEmpty) {
+              logger.debug("Empty buffer")
+              context unbecome()
+            } else {
+              logger.debug("Non empty buffer, write again")
+              val w = senzBuffer.head
+              senzBuffer.remove(0)
+              connection ! Tcp.Write(ByteString(s"${w.data};"), SenzAck)
+            }
+          case SenzMsg(senz: Senz, msg: String) =>
+            logger.debug(s"SenzMsg received while waiting for ack: $msg")
+            onSenzMsg(senz, msg)
+        }, discardOld = false)
+      } else {
+        // no actor name to send data
+        logger.error(s"No actor name to send data: $data")
+      }
     case SenzMsg(senz: Senz, msg: String) =>
       logger.debug(s"SenzMsg received $msg")
       onSenzMsg(senz, msg)
@@ -312,6 +317,9 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     SenzListenerActor.actorRefs.put(actorName, ref)
 
     logger.debug(s"added ref with ${ref.actorId.id}")
+
+    // send TAK on connect
+    self ! Msg("TAK")
 
     // ping means reconnect
     // dispatch queued messages
