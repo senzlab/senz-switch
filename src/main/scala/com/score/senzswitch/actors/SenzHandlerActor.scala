@@ -45,30 +45,35 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
   context watch connection
 
-  val takCancel = system.scheduler.schedule(60.seconds, 120.seconds, self, Msg("TAK"))
+  val tikCancel = system.scheduler.schedule(60.seconds, 120.seconds, self, Msg("TIK"))
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
 
     buffRef = context.actorOf(SenzBufferActor.props(self))
+
+    // send TAK on connect
+    self ! Msg("TAK")
   }
 
   override def postStop() = {
     logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $actorName")
 
     // remove ref
-    SenzListenerActor.actorRefs.get(actorName) match {
-      case Some(Ref(_, actorId)) =>
-        if (ref.actorId.id == actorId.id) {
-          // same actor, so remove it
-          SenzListenerActor.actorRefs.remove(actorName)
+    if (actorName != null) {
+      SenzListenerActor.actorRefs.get(actorName) match {
+        case Some(Ref(_, actorId)) =>
+          if (ref.actorId.id == actorId.id) {
+            // same actor, so remove it
+            SenzListenerActor.actorRefs.remove(actorName)
 
-          logger.info(s"Remove actor with id $actorId")
-        } else {
-          logger.info(s"Nothing to remove actor id mismatch $actorId : ${ref.actorId.id}")
-        }
-      case None =>
-        logger.debug(s"No actor found with $actorName")
+            logger.info(s"Remove actor with id $actorId")
+          } else {
+            logger.info(s"Nothing to remove actor id mismatch $actorId : ${ref.actorId.id}")
+          }
+        case None =>
+          logger.debug(s"No actor found with $actorName")
+      }
     }
   }
 
@@ -82,7 +87,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     case Tcp.WritingResumed =>
       logger.info(s"Write resumed of $actorName with ${failedSenz.size} writes")
       failedSenz.foreach { write =>
-        logger.info(s"Rewriting --- ${write.data.decodeString("UTF-8")}")
+        logger.info(s"Rewriting ${write.data.decodeString("UTF-8")}")
         connection ! write
       }
       failedSenz.clear()
@@ -91,61 +96,34 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
       context stop self
     case Msg(data) =>
       logger.debug(s"Send senz message $data to user $actorName with SenzAck")
-      connection ! Tcp.Write(ByteString(s"$data\n\r"), SenzAck)
+      connection ! Tcp.Write(ByteString(s"$data;"), SenzAck)
       context.become({
         case Tcp.Received(senzIn) =>
           val senz = senzIn.decodeString("UTF-8")
-          logger.debug("Senz received ack.." + senz)
+          logger.debug(s"Senz received ack $senz")
 
           val buf = Buf(senz)
           buffRef ! buf
         case Tcp.PeerClosed =>
           context stop self
         case msg: Msg =>
-          logger.debug("Msg received ack.." + msg.data)
+          logger.debug(s"Msg received ack ${msg.data}")
           senzBuffer += msg
         case SenzAck =>
-          logger.debug("Ack received...")
+          logger.debug("Ack received")
           if (senzBuffer.isEmpty) {
-            logger.debug("Empty buffer ...")
+            logger.debug("Empty buffer")
             context unbecome()
           } else {
-            logger.debug("Non empty buffer, write again ...")
+            logger.debug("Non empty buffer, write again")
             val w = senzBuffer.head
             senzBuffer.remove(0)
-            connection ! Tcp.Write(ByteString(s"${w.data}\n\r"), SenzAck)
+            connection ! Tcp.Write(ByteString(s"${w.data};"), SenzAck)
           }
         case SenzMsg(senz: Senz, msg: String) =>
-          logger.debug(s"SenzMsg received ACk... $msg")
+          logger.debug(s"SenzMsg received ACk $msg")
           onSenzMsg(senz, msg)
       }, discardOld = false)
-    case SenzMsg(senz: Senz, msg: String) =>
-      logger.debug(s"SenzMsg received $msg")
-      onSenzMsg(senz, msg)
-  }
-
-  def buffering: Receive = {
-    case Tcp.Received(senzIn) =>
-      val senz = senzIn.decodeString("UTF-8")
-      logger.info("Senz received while buffering...... " + senz)
-
-      val buf = Buf(senz)
-      buffRef ! buf
-    case Tcp.WritingResumed =>
-      logger.info(s"Write resumed of $actorName with ${failedSenz.size} writes")
-      failedSenz.foreach { write =>
-        logger.info(s"Rewriting --- ${write.data.decodeString("UTF-8")}")
-        connection ! write
-      }
-      failedSenz.clear()
-
-      context.unbecome()
-    case Tcp.PeerClosed =>
-      logger.info("Peer Closed")
-      context stop self
-    case Msg(data) =>
-      logger.info(s"Msg $data to $actorName while buffering")
-      failedSenz += Write(ByteString(s"$data\n\r"), SenzAck)
     case SenzMsg(senz: Senz, msg: String) =>
       logger.debug(s"SenzMsg received $msg")
       onSenzMsg(senz, msg)
@@ -203,7 +181,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
           //context.stop(self)
           //self ! PoisonPill
           case _ =>
-            logger.debug("No senzies with name " + actorName)
+            logger.debug("No senzies with name " + senzMsg.senz.sender)
 
             // popup refs
             actorName = senzMsg.senz.sender

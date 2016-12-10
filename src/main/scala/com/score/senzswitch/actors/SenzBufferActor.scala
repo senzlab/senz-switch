@@ -55,7 +55,7 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with KeyStoreCompImpl 
       logger.info(s"Start SenzBuffer")
 
       while (isRunning) {
-        val index = buffer.indexOf("\n")
+        val index = buffer.indexOf(";")
         if (index != -1) {
           val msg = buffer.substring(0, index)
           buffer.delete(0, index + 1)
@@ -67,6 +67,8 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with KeyStoreCompImpl 
               logger.debug("TAK received")
             case "TIK" =>
               logger.debug("TIK received")
+            case "TUK" =>
+              logger.debug("TUK received")
             case _ =>
               val senz = SenzParser.parseSenz(msg)
               handlerRef ! SenzMsg(senz, msg)

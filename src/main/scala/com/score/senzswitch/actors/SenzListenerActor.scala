@@ -1,5 +1,6 @@
 package com.score.senzswitch.actors
 
+import java.io.{PrintWriter, StringWriter}
 import java.net.InetSocketAddress
 
 import akka.actor.SupervisorStrategy.Stop
@@ -37,6 +38,7 @@ class SenzListenerActor(queueRef: ActorRef) extends Actor with AppConfig {
   override def supervisorStrategy = OneForOneStrategy() {
     case e: Exception =>
       logger.error("Exception caught, [STOP ACTOR] " + e)
+      logFailure(e)
 
       // stop failed actors here
       Stop
@@ -53,5 +55,11 @@ class SenzListenerActor(queueRef: ActorRef) extends Actor with AppConfig {
     case Tcp.CommandFailed(_: Bind) =>
       logger.error("Bind failed")
       context stop self
+  }
+
+  private def logFailure(throwable: Throwable) = {
+    val writer = new StringWriter
+    throwable.printStackTrace(new PrintWriter(writer))
+    logger.error(writer.toString)
   }
 }
