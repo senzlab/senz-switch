@@ -1,11 +1,12 @@
 package com.score.senzswitch.actors
 
 import akka.actor.{Actor, ActorRef, Props}
-import com.score.senzswitch.components.{CryptoCompImpl, KeyStoreCompImpl}
-import com.score.senzswitch.config.{AppConfig, DbConfig}
+import com.score.senzswitch.config.AppConfig
 import com.score.senzswitch.protocols._
 import com.score.senzswitch.utils.SenzParser
 import org.slf4j.LoggerFactory
+
+import scala.annotation.tailrec
 
 object SenzBufferActor {
 
@@ -13,28 +14,25 @@ object SenzBufferActor {
 
   case class Buf(date: String)
 
-  case class ReadBuf()
-
 }
 
-class SenzBufferActor(handlerRef: ActorRef) extends Actor with KeyStoreCompImpl with DbConfig with CryptoCompImpl with AppConfig {
+class SenzBufferActor(handlerRef: ActorRef) extends Actor with AppConfig {
 
   import SenzBufferActor._
 
   def logger = LoggerFactory.getLogger(this.getClass)
 
-  var buffer: StringBuffer = new StringBuffer()
-
-  val senzBuffer = new SenzBuffer
+  var buffer = new StringBuffer()
+  val bufferListener = new BufferListener()
 
   override def preStart() = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
-    senzBuffer.start()
+    bufferListener.start()
   }
 
   override def postStop() = {
     logger.info(s"[_________STOP ACTOR__________] ${context.self.path}")
-    senzBuffer.shutdown()
+    bufferListener.shutdown()
   }
 
   override def receive = {
@@ -43,38 +41,43 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with KeyStoreCompImpl 
       logger.debug(s"Buf to buffer ${buffer.toString}")
   }
 
-  protected class SenzBuffer extends Thread {
+  protected class BufferListener extends Thread {
     var isRunning = true
 
     def shutdown() = {
-      logger.info(s"Shutdown SenzBuffer")
+      logger.info(s"Shutdown BufferListener")
       isRunning = false
     }
 
     override def run() = {
-      logger.info(s"Start SenzBuffer")
+      logger.info(s"Start BufferListener")
 
-      while (isRunning) {
-        val index = buffer.indexOf(";")
-        if (index != -1) {
-          val msg = buffer.substring(0, index)
-          buffer.delete(0, index + 1)
-          logger.debug(s"Got senz from buffer $msg")
+      if (isRunning) listen()
+    }
 
-          // send message back to handler
-          msg match {
-            case "TAK" =>
-              logger.debug("TAK received")
-            case "TIK" =>
-              logger.debug("TIK received")
-            case "TUK" =>
-              logger.debug("TUK received")
-            case _ =>
-              val senz = SenzParser.parseSenz(msg)
-              handlerRef ! SenzMsg(senz, msg)
-          }
+    @tailrec
+    private def listen(): Unit = {
+      val index = buffer.indexOf(";")
+      if (index != -1) {
+        val msg = buffer.substring(0, index)
+        buffer.delete(0, index + 1)
+        logger.debug(s"Got senz from buffer $msg")
+
+        // send message back to handler
+        msg match {
+          case "TAK" =>
+            logger.debug("TAK received")
+          case "TIK" =>
+            logger.debug("TIK received")
+          case "TUK" =>
+            logger.debug("TUK received")
+          case _ =>
+            val senz = SenzParser.parseSenz(msg)
+            handlerRef ! SenzMsg(senz, msg)
         }
       }
+
+      if (isRunning) listen()
     }
   }
 

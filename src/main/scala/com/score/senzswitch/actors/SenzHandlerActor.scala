@@ -2,7 +2,7 @@ package com.score.senzswitch.actors
 
 import akka.actor._
 import akka.io.Tcp
-import akka.io.Tcp.{Event, Write}
+import akka.io.Tcp.Event
 import akka.util.ByteString
 import com.score.senzswitch.actors.SenzBufferActor.Buf
 import com.score.senzswitch.actors.SenzQueueActor.{Dequeue, Dispatch, Enqueue, QueueObj}
@@ -35,15 +35,12 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
   def logger = LoggerFactory.getLogger(this.getClass)
 
   var actorName: String = _
-  var ref: Ref = _
+  var actorRef: Ref = _
 
   var buffRef: ActorRef = _
 
-  // keep write failed msgs
-  var failedSenz = new ListBuffer[Write]
-
   // keep msgs when waiting for an ack
-  var senzBuffer = new ListBuffer[Msg]
+  var waitingMsgBuffer = new ListBuffer[Msg]
 
   context watch connection
 
@@ -62,13 +59,13 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     if (actorName != null) {
       SenzListenerActor.actorRefs.get(actorName) match {
         case Some(Ref(_, actorId)) =>
-          if (ref.actorId.id == actorId.id) {
+          if (actorRef.actorId.id == actorId.id) {
             // same actor, so remove it
             SenzListenerActor.actorRefs.remove(actorName)
 
             logger.info(s"Remove actor with id $actorId")
           } else {
-            logger.info(s"Nothing to remove actor id mismatch $actorId : ${ref.actorId.id}")
+            logger.info(s"Nothing to remove actor id mismatch $actorId : ${actorRef.actorId.id}")
           }
         case None =>
           logger.debug(s"No actor found with $actorName")
@@ -83,13 +80,6 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
       val buf = Buf(senz)
       buffRef ! buf
-    case Tcp.WritingResumed =>
-      logger.info(s"Write resumed of $actorName with ${failedSenz.size} writes")
-      failedSenz.foreach { write =>
-        logger.info(s"Rewriting ${write.data.decodeString("UTF-8")}")
-        connection ! write
-      }
-      failedSenz.clear()
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
       context stop self
@@ -109,16 +99,16 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
             context stop self
           case msg: Msg =>
             logger.debug(s"Msg received while waiting for ack: ${msg.data}")
-            senzBuffer += msg
+            waitingMsgBuffer += msg
           case SenzAck =>
             logger.debug("Ack received")
-            if (senzBuffer.isEmpty) {
+            if (waitingMsgBuffer.isEmpty) {
               logger.debug("Empty buffer")
               context unbecome()
             } else {
               logger.debug("Non empty buffer, write again")
-              val w = senzBuffer.head
-              senzBuffer.remove(0)
+              val w = waitingMsgBuffer.head
+              waitingMsgBuffer.remove(0)
               connection ! Tcp.Write(ByteString(s"${w.data};"), SenzAck)
             }
           case SenzMsg(senz: Senz, msg: String) =>
@@ -146,8 +136,6 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
         onStream(SenzMsg(senz, msg))
       case Senz(SenzType.PING, sender, receiver, attr, signature) =>
         onPing(SenzMsg(senz, msg))
-      case _ =>
-      // do nothing
     }
   }
 
@@ -167,10 +155,10 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
             // popup refs
             actorName = senzMsg.senz.sender
-            ref = Ref(self)
-            SenzListenerActor.actorRefs.put(actorName, ref)
+            actorRef = Ref(self)
+            SenzListenerActor.actorRefs.put(actorName, actorRef)
 
-            logger.debug(s"added ref with ${ref.actorId.id}")
+            logger.debug(s"added ref with ${actorRef.actorId.id}")
 
             // share from already registered senzie
             val payload = s"DATA #status 601 #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
@@ -190,10 +178,10 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
             // popup refs
             actorName = senzMsg.senz.sender
-            ref = Ref(self)
-            SenzListenerActor.actorRefs.put(actorName, ref)
+            actorRef = Ref(self)
+            SenzListenerActor.actorRefs.put(actorName, actorRef)
 
-            logger.debug(s"added ref with ${ref.actorId.id}")
+            logger.debug(s"added ref with ${actorRef.actorId.id}")
 
             keyStore.saveSenzieKey(SenzKey(senz.sender, senz.attributes("#pubkey")))
 
@@ -313,10 +301,10 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
     // popup refs
     actorName = senz.sender
-    ref = Ref(self)
-    SenzListenerActor.actorRefs.put(actorName, ref)
+    actorRef = Ref(self)
+    SenzListenerActor.actorRefs.put(actorName, actorRef)
 
-    logger.debug(s"added ref with ${ref.actorId.id}")
+    logger.debug(s"added ref with ${actorRef.actorId.id}")
 
     // send TAK on connect
     self ! Msg("TAK")
