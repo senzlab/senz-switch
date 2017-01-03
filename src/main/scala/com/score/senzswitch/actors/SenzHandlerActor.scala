@@ -283,7 +283,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
   def onStream(senzMsg: SenzMsg) = {
     val senz = senzMsg.senz
-    logger.info(s"STREAM from senzie ${senz.sender} to ${senz.receiver}")
+    logger.debug(s"STREAM from senzie ${senz.sender} to ${senz.receiver}")
 
     if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
       logger.debug(s"Store contains actor with " + senz.receiver)
@@ -295,7 +295,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     }
 
     // send status back for end stream
-    if (senz.attributes.exists(_._2 == "#off")) {
+    if (senz.attributes.exists(_._2 == "off")) {
       val payload = s"DATA #status RECEIVED #uid ${senz.attributes("#uid")} @${senz.sender} ^senzswitch SIGNATURE"
       self ! Msg(crypto.sing(payload))
     }
