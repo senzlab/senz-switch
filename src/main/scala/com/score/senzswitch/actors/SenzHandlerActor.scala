@@ -161,18 +161,15 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
             logger.debug(s"added ref with ${actorRef.actorId.id}")
 
             // share from already registered senzie
-            val payload = s"DATA #status 601 #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
+            val payload = s"DATA #status REG_ALR #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
             self ! Msg(crypto.sing(payload))
           case Some(SenzKey(_, _)) =>
-            logger.error(s"Have senzie with name $actorName")
+            logger.error(s"Have registered senzie with name $senzSender")
 
             // user already exists
-            // send error
-            val payload = s"DATA #status 602 #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
-            self ! Msg(crypto.sing(payload))
-
-          //context.stop(self)
-          //self ! PoisonPill
+            // send error directly(without ack)
+            val payload = s"DATA #status REG_FAIL #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
+            connection ! Tcp.Write(ByteString(s"$payload;"))
           case _ =>
             logger.debug("No senzies with name " + senzMsg.senz.sender)
 
@@ -188,7 +185,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
             logger.debug(s"Registration done of senzie $actorName")
 
             // reply share done msg
-            val payload = s"DATA #status 600 #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
+            val payload = s"DATA #status REG_DONE #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
             self ! Msg(crypto.sing(payload))
         }
       case _ =>
