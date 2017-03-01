@@ -63,9 +63,9 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
             // same actor, so remove it
             SenzListenerActor.actorRefs.remove(actorName)
 
-            logger.info(s"Remove actor with id $actorId")
+            logger.debug(s"Remove actor with id $actorId")
           } else {
-            logger.info(s"Nothing to remove actor id mismatch $actorId : ${actorRef.actorId.id}")
+            logger.debug(s"Nothing to remove actor id mismatch $actorId : ${actorRef.actorId.id}")
           }
         case None =>
           logger.debug(s"No actor found with $actorName")
@@ -132,6 +132,8 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
         onGet(SenzMsg(senz, msg))
       case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
         onData(SenzMsg(senz, msg))
+      case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
+        onPut(SenzMsg(senz, msg))
       case Senz(SenzType.STREAM, sender, receiver, attr, signature) =>
         onStream(SenzMsg(senz, msg))
       case Senz(SenzType.PING, sender, receiver, attr, signature) =>
@@ -141,7 +143,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
   def onShare(senzMsg: SenzMsg) = {
     val senz = senzMsg.senz
-    logger.info(s"SHARE from senzie ${senz.sender} to ${senz.receiver}")
+    logger.debug(s"SHARE from senzie ${senz.sender} to ${senz.receiver}")
 
     senz.receiver match {
       case `switchName` =>
@@ -209,7 +211,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
   def onGet(senzMsg: SenzMsg) = {
     val senz = senzMsg.senz
-    logger.info(s"GET from senzie ${senz.sender} to ${senz.receiver}")
+    logger.debug(s"GET from senzie ${senz.sender} to ${senz.receiver}")
 
     senz.receiver match {
       case `switchName` =>
@@ -251,7 +253,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
   def onData(senzMsg: SenzMsg) = {
     val senz = senzMsg.senz
-    logger.info(s"DATA from senzie ${senz.sender} to ${senz.receiver}")
+    logger.debug(s"DATA from senzie ${senz.sender} to ${senz.receiver}")
 
     senz.receiver match {
       case `switchName` =>
@@ -275,6 +277,24 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
           val payload = s"DATA #status OFFLINE #name ${senz.receiver} @${senz.sender} ^senzswitch"
           self ! Msg(crypto.sing(payload))
         }
+    }
+  }
+
+  def onPut(senzMsg: SenzMsg) = {
+    val senz = senzMsg.senz
+    logger.debug(s"PUT from senzie ${senz.sender} to ${senz.receiver}")
+
+    // forward message to receiver
+    // send status back to sender
+    if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
+      logger.debug(s"Store contains actor with " + senz.receiver)
+      SenzListenerActor.actorRefs(senz.receiver).actorRef ! Msg(senzMsg.data)
+    } else {
+      logger.error(s"Store NOT contains actor with " + senz.receiver)
+
+      // send OFFLINE status back to sender
+      val payload = s"DATA #status OFFLINE #name ${senz.receiver} @${senz.sender} ^senzswitch"
+      self ! Msg(crypto.sing(payload))
     }
   }
 
