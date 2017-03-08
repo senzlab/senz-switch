@@ -171,7 +171,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
             // user already exists
             // send error directly(without ack)
             val payload = s"DATA #status REG_FAIL #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
-            connection ! Tcp.Write(ByteString(s"$payload;"))
+            self ! Msg(crypto.sing(payload))
           case _ =>
             logger.debug("No senzies with name " + senzMsg.senz.sender)
 
