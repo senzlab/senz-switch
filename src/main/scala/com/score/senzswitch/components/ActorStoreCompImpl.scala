@@ -3,19 +3,19 @@ package com.score.senzswitch.components
 import akka.actor.ActorRef
 
 /**
- * Created by eranga on 5/20/16.
- */
+  * Created by eranga on 5/20/16.
+  */
 trait ActorStoreCompImpl extends ActorStoreComp {
 
   val actorStore = new ActorStoreImpl
 
-  object PayzActorStore {
+  object SenzActorStore {
     val actorRefs = scala.collection.mutable.LinkedHashMap[String, ActorRef]()
   }
 
   class ActorStoreImpl extends ActorStore {
 
-    import PayzActorStore._
+    import SenzActorStore._
 
     override def getActor(name: String): Option[ActorRef] = {
       actorRefs.get(name)
