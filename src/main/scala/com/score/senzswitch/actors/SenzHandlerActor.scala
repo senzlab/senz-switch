@@ -16,7 +16,7 @@ import scala.concurrent.duration._
 
 object SenzHandlerActor {
 
-  case object SenzAck extends Event
+  case object Ack extends Event
 
   case object Tak
 
@@ -87,7 +87,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
       if (actorName != null) {
         // send data when only having actor name
         logger.debug(s"Send senz message $data to user $actorName with SenzAck")
-        connection ! Tcp.Write(ByteString(s"$data;"), SenzAck)
+        connection ! Tcp.Write(ByteString(s"$data;"), Ack)
         context.become({
           case Tcp.Received(senzIn) =>
             val senz = senzIn.decodeString("UTF-8")
@@ -100,7 +100,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
           case msg: Msg =>
             logger.debug(s"Msg received while waiting for ack: ${msg.data}")
             waitingMsgBuffer += msg
-          case SenzAck =>
+          case Ack =>
             logger.debug("Ack received")
             if (waitingMsgBuffer.isEmpty) {
               logger.debug("Empty buffer")
@@ -109,7 +109,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
               logger.debug("Non empty buffer, write again")
               val w = waitingMsgBuffer.head
               waitingMsgBuffer.remove(0)
-              connection ! Tcp.Write(ByteString(s"${w.data};"), SenzAck)
+              connection ! Tcp.Write(ByteString(s"${w.data};"), Ack)
             }
           case SenzMsg(senz: Senz, msg: String) =>
             logger.debug(s"SenzMsg received while waiting for ack: $msg")

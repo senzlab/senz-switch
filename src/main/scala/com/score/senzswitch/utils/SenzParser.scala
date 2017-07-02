@@ -12,8 +12,8 @@ object SenzParser {
 
     val senzType = getSenzType(tokens)
     val signature = getSignature(tokens.drop(1))
-    val sender = getSender(tokens.drop(1).dropRight(1)).toLowerCase
-    val receiver = getReceiver(tokens.drop(1).dropRight(2)).toLowerCase
+    val sender = getSender(tokens.drop(1).dropRight(1))
+    val receiver = getReceiver(tokens.drop(1).dropRight(2))
     val attr = getAttributes(tokens.drop(1).dropRight(3))
 
     Senz(senzType, sender, receiver, attr, signature)
