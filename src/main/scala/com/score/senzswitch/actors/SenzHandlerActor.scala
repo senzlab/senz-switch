@@ -260,6 +260,11 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
         // this is status(delivery status most probably)
         // dequeue
         queueRef ! Dequeue(senz.attributes("#uid"))
+      case "*" =>
+        // broadcast senz
+        SenzListenerActor.actorRefs.foreach {
+          ar => if (!ar._1.equalsIgnoreCase(actorName)) ar._2.actorRef ! Msg(senzMsg.data)
+        }
       case _ =>
         // enqueue only DATA senz with values(not status)
         if (senz.attributes.contains("#msg") || senz.attributes.contains("$msg"))
@@ -284,17 +289,29 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     val senz = senzMsg.senz
     logger.debug(s"PUT from senzie ${senz.sender} to ${senz.receiver}")
 
-    // forward message to receiver
-    // send status back to sender
-    if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
-      logger.debug(s"Store contains actor with " + senz.receiver)
-      SenzListenerActor.actorRefs(senz.receiver).actorRef ! Msg(senzMsg.data)
-    } else {
-      logger.error(s"Store NOT contains actor with " + senz.receiver)
+    senz.receiver match {
+      case `switchName` =>
+        // this is status(delivery status most probably)
+        // dequeue
+        queueRef ! Dequeue(senz.attributes("#uid"))
+      case "*" =>
+        // broadcast senz
+        SenzListenerActor.actorRefs.foreach {
+          ar => if (!ar._1.equalsIgnoreCase(actorName)) ar._2.actorRef ! Msg(senzMsg.data)
+        }
+      case _ =>
+        // forward message to receiver
+        // send status back to sender
+        if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
+          logger.debug(s"Store contains actor with " + senz.receiver)
+          SenzListenerActor.actorRefs(senz.receiver).actorRef ! Msg(senzMsg.data)
+        } else {
+          logger.error(s"Store NOT contains actor with " + senz.receiver)
 
-      // send OFFLINE status back to sender
-      val payload = s"DATA #status OFFLINE #name ${senz.receiver} @${senz.sender} ^senzswitch"
-      self ! Msg(crypto.sing(payload))
+          // send OFFLINE status back to sender
+          val payload = s"DATA #status OFFLINE #name ${senz.receiver} @${senz.sender} ^senzswitch"
+          self ! Msg(crypto.sing(payload))
+        }
     }
   }
 
