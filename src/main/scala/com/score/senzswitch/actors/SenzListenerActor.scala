@@ -3,7 +3,7 @@ package com.score.senzswitch.actors
 import java.io.{PrintWriter, StringWriter}
 import java.net.InetSocketAddress
 
-import akka.actor.SupervisorStrategy.Stop
+import akka.actor.SupervisorStrategy.{Resume, Stop}
 import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props}
 import akka.io.Tcp.SO.KeepAlive
 import akka.io.{IO, Tcp}
@@ -27,21 +27,13 @@ class SenzListenerActor(queueRef: ActorRef) extends Actor with AppConfig {
   val socOp = List(KeepAlive(true))
   IO(Tcp) ! Bind(self, new InetSocketAddress(switchPort), options = socOp)
 
-  override def preStart() = {
-    logger.info("[_________START ACTOR__________] " + context.self.path)
-  }
-
-  override def postStop() = {
-    logger.info("[_________STOP ACTOR__________] " + context.self.path)
-  }
-
   override def supervisorStrategy = OneForOneStrategy() {
     case e: Exception =>
       logger.error("Exception caught, [STOP ACTOR] " + e)
       logFailure(e)
 
       // stop failed actors here
-      Stop
+      Resume
   }
 
   override def receive: Receive = {
@@ -57,7 +49,7 @@ class SenzListenerActor(queueRef: ActorRef) extends Actor with AppConfig {
       context stop self
   }
 
-  private def logFailure(throwable: Throwable) = {
+  private def logFailure(throwable: Throwable): Unit = {
     val writer = new StringWriter
     throwable.printStackTrace(new PrintWriter(writer))
     logger.error(writer.toString)

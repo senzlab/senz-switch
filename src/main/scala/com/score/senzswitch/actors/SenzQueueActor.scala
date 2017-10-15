@@ -10,11 +10,11 @@ object SenzQueueActor {
 
   val senzQueue = scala.collection.mutable.ListBuffer[QueueObj]()
 
+  case class QueueObj(uid: String, senzMsg: SenzMsg)
+
   case class Enqueue(qObj: QueueObj)
 
   case class Dequeue(uid: String)
-
-  case class QueueObj(uid: String, senzMsg: SenzMsg)
 
   case class Dispatch(actorRef: ActorRef, user: String)
 
@@ -27,14 +27,6 @@ class SenzQueueActor extends Actor {
   import SenzQueueActor._
 
   def logger = LoggerFactory.getLogger(this.getClass)
-
-  override def preStart() = {
-    logger.info(s"[_________START ACTOR__________] ${context.self.path}")
-  }
-
-  override def postStop() = {
-    logger.info(s"[_________STOP ACTOR__________] ${context.self.path}")
-  }
 
   override def receive = {
     case Enqueue(qObj) =>
@@ -96,7 +88,7 @@ class SenzQueueActor extends Actor {
       senzQueue.filter(qObj => qObj.senzMsg.senz.receiver.equalsIgnoreCase(user)).foreach(s => actorRef ! Msg(s.senzMsg.data))
   }
 
-  private def enqueueObj(qObj: QueueObj)(sender: String = qObj.senzMsg.senz.sender) = {
+  private def enqueueObj(qObj: QueueObj)(sender: String = qObj.senzMsg.senz.sender): Unit = {
     senzQueue += qObj
 
     // send RECEIVED status back to sender
@@ -104,7 +96,7 @@ class SenzQueueActor extends Actor {
     SenzListenerActor.actorRefs(sender).actorRef ! Msg(payload)
   }
 
-  private def matchSenderReceiver(qObj1: QueueObj, qObj2: QueueObj) = {
+  private def matchSenderReceiver(qObj1: QueueObj, qObj2: QueueObj): Boolean = {
     qObj1.senzMsg.senz.receiver.equalsIgnoreCase(qObj2.senzMsg.senz.receiver) &&
       qObj1.senzMsg.senz.sender.equalsIgnoreCase(qObj2.senzMsg.senz.sender)
   }

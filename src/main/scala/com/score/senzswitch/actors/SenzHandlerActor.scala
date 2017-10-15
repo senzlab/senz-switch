@@ -4,13 +4,14 @@ import akka.actor._
 import akka.io.Tcp
 import akka.io.Tcp.Event
 import akka.util.ByteString
-import com.score.senzswitch.actors.SenzBufferActor.Buf
 import com.score.senzswitch.actors.SenzQueueActor.{Dequeue, Dispatch, Enqueue, QueueObj}
 import com.score.senzswitch.components.{ActorStoreCompImpl, CryptoCompImpl, KeyStoreCompImpl, ShareStoreCompImpl}
 import com.score.senzswitch.config.{AppConfig, DbConfig}
 import com.score.senzswitch.protocols._
+import com.score.senzswitch.utils.SenzParser
 import org.slf4j.LoggerFactory
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 
@@ -37,7 +38,9 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
   var actorName: String = _
   var actorRef: Ref = _
 
-  var buffRef: ActorRef = _
+  // buffers
+  var buffer = new StringBuffer()
+  val bufferListener = new BufferListener()
 
   // keep msgs when waiting for an ack
   var waitingMsgBuffer = new ListBuffer[Msg]
@@ -46,14 +49,16 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
 
   val tikCancel = system.scheduler.schedule(60.seconds, 120.seconds, self, Msg("TIK"))
 
-  override def preStart() = {
+  override def preStart(): Unit = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
 
-    buffRef = context.actorOf(SenzBufferActor.props(self))
+    bufferListener.start()
   }
 
-  override def postStop() = {
+  override def postStop(): Unit = {
     logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $actorName")
+
+    bufferListener.shutdown()
 
     // remove ref
     if (actorName != null) {
@@ -76,10 +81,8 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
   override def receive: Receive = {
     case Tcp.Received(senzIn) =>
       val senz = senzIn.decodeString("UTF-8")
+      buffer.append(senz)
       logger.debug("Senz received " + senz)
-
-      val buf = Buf(senz)
-      buffRef ! buf
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
       context stop self
@@ -91,10 +94,8 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
         context.become({
           case Tcp.Received(senzIn) =>
             val senz = senzIn.decodeString("UTF-8")
+            buffer.append(senz)
             logger.debug(s"Senz received while while waiting for ack: $senz")
-
-            val buf = Buf(senz)
-            buffRef ! buf
           case Tcp.PeerClosed =>
             context stop self
           case msg: Msg =>
@@ -111,37 +112,14 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
               waitingMsgBuffer.remove(0)
               connection ! Tcp.Write(ByteString(s"${w.data};"), Ack)
             }
-          case SenzMsg(senz: Senz, msg: String) =>
-            logger.debug(s"SenzMsg received while waiting for ack: $msg")
-            onSenzMsg(senz, msg)
         }, discardOld = false)
       } else {
         // no actor name to send data
         logger.error(s"No actor name to send data: $data")
       }
-    case SenzMsg(senz: Senz, msg: String) =>
-      logger.debug(s"SenzMsg received $msg")
-      onSenzMsg(senz, msg)
   }
 
-  def onSenzMsg(senz: Senz, msg: String) = {
-    senz match {
-      case Senz(SenzType.SHARE, sender, receiver, attr, signature) =>
-        onShare(SenzMsg(senz, msg))
-      case Senz(SenzType.GET, sender, receiver, attr, signature) =>
-        onGet(SenzMsg(senz, msg))
-      case Senz(SenzType.DATA, sender, receiver, attr, signature) =>
-        onData(SenzMsg(senz, msg))
-      case Senz(SenzType.PUT, sender, receiver, attr, signature) =>
-        onPut(SenzMsg(senz, msg))
-      case Senz(SenzType.STREAM, sender, receiver, attr, signature) =>
-        onStream(SenzMsg(senz, msg))
-      case Senz(SenzType.PING, sender, receiver, attr, signature) =>
-        onPing(SenzMsg(senz, msg))
-    }
-  }
-
-  def onShare(senzMsg: SenzMsg) = {
+  def onShare(senzMsg: SenzMsg): Unit = {
     val senz = senzMsg.senz
     logger.debug(s"SHARE from senzie ${senz.sender} to ${senz.receiver}")
 
@@ -209,7 +187,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     }
   }
 
-  def onGet(senzMsg: SenzMsg) = {
+  def onGet(senzMsg: SenzMsg): Unit = {
     val senz = senzMsg.senz
     logger.debug(s"GET from senzie ${senz.sender} to ${senz.receiver}")
 
@@ -251,7 +229,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     }
   }
 
-  def onData(senzMsg: SenzMsg) = {
+  def onData(senzMsg: SenzMsg): Unit = {
     val senz = senzMsg.senz
     logger.debug(s"DATA from senzie ${senz.sender} to ${senz.receiver}")
 
@@ -285,15 +263,11 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     }
   }
 
-  def onPut(senzMsg: SenzMsg) = {
+  def onPut(senzMsg: SenzMsg): Unit = {
     val senz = senzMsg.senz
     logger.debug(s"PUT from senzie ${senz.sender} to ${senz.receiver}")
 
     senz.receiver match {
-      case `switchName` =>
-        // this is status(delivery status most probably)
-        // dequeue
-        queueRef ! Dequeue(senz.attributes("#uid"))
       case "*" =>
         // broadcast senz
         SenzListenerActor.actorRefs.foreach {
@@ -315,27 +289,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     }
   }
 
-  def onStream(senzMsg: SenzMsg) = {
-    val senz = senzMsg.senz
-    logger.debug(s"STREAM from senzie ${senz.sender} to ${senz.receiver}")
-
-    if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
-      logger.debug(s"Store contains actor with " + senz.receiver)
-
-      // not verify streams, instead directly send them
-      SenzListenerActor.actorRefs(senz.receiver).actorRef ! Msg(senzMsg.data)
-    } else {
-      logger.error(s"Store NOT contains actor with " + senz.receiver)
-    }
-
-    // send status back for end stream
-    if (senz.attributes.exists(_._2 == "off")) {
-      val payload = s"DATA #status RECEIVED #uid ${senz.attributes("#uid")} @${senz.sender} ^senzswitch SIGNATURE"
-      self ! Msg(crypto.sing(payload))
-    }
-  }
-
-  def onPing(senzMsg: SenzMsg) = {
+  def onPing(senzMsg: SenzMsg): Unit = {
     val senz = senzMsg.senz
     logger.info(s"PING from senzie ${senz.sender}")
 
@@ -352,6 +306,59 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
     // ping means reconnect
     // dispatch queued messages
     queueRef ! Dispatch(self, actorName)
+  }
+
+  protected class BufferListener extends Thread {
+    var isRunning = true
+
+    def shutdown(): Unit = {
+      logger.info(s"Shutdown BufferListener")
+      isRunning = false
+    }
+
+    override def run(): Unit = {
+      logger.info(s"Start BufferListener")
+
+      if (isRunning) listen()
+    }
+
+    @tailrec
+    private def listen(): Unit = {
+      val index = buffer.indexOf(";")
+      if (index != -1) {
+        val msg = buffer.substring(0, index)
+        buffer.delete(0, index + 1)
+        logger.debug(s"Got senz from buffer $msg")
+
+        // send message back to handler
+        msg match {
+          case "TAK" =>
+            logger.debug("TAK received")
+          case "TIK" =>
+            logger.debug("TIK received")
+          case "TUK" =>
+            logger.debug("TUK received")
+          case _ =>
+            val senz = SenzParser.parseSenz(msg)
+            senz match {
+              case Senz(SenzType.SHARE, _, _, _, _) =>
+                onShare(SenzMsg(senz, msg))
+              case Senz(SenzType.GET, _, _, _, _) =>
+                onGet(SenzMsg(senz, msg))
+              case Senz(SenzType.DATA, _, _, _, _) =>
+                onData(SenzMsg(senz, msg))
+              case Senz(SenzType.PUT, _, _, _, _) =>
+                onPut(SenzMsg(senz, msg))
+              case Senz(SenzType.PING, _, _, _, _) =>
+                onPing(SenzMsg(senz, msg))
+              case _ =>
+                logger.error(s"unsupported senz $senz")
+            }
+        }
+      }
+
+      if (isRunning) listen()
+    }
   }
 
 }
