@@ -11,7 +11,6 @@ import com.score.senzswitch.protocols._
 import com.score.senzswitch.utils.SenzParser
 import org.slf4j.LoggerFactory
 
-import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 
@@ -83,6 +82,7 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
       val senz = senzIn.decodeString("UTF-8")
       buffer.append(senz)
       logger.debug("Senz received " + senz)
+      logger.debug("Buffer content ------- " + buffer.toString)
     case Tcp.PeerClosed =>
       logger.info("Peer Closed")
       context stop self
@@ -322,42 +322,45 @@ class SenzHandlerActor(connection: ActorRef, queueRef: ActorRef) extends Actor w
       if (isRunning) listen()
     }
 
-    @tailrec
     private def listen(): Unit = {
-      val index = buffer.indexOf(";")
-      if (index != -1) {
-        val msg = buffer.substring(0, index)
-        buffer.delete(0, index + 1)
-        logger.debug(s"Got senz from buffer $msg")
+      while (isRunning) {
+        val index = buffer.indexOf(";")
+        if (index != -1) {
+          val msg = buffer.substring(0, index)
+          buffer.delete(0, index + 1)
+          logger.debug(s"Got senz from buffer $msg")
 
-        // send message back to handler
-        msg match {
-          case "TAK" =>
-            logger.debug("TAK received")
-          case "TIK" =>
-            logger.debug("TIK received")
-          case "TUK" =>
-            logger.debug("TUK received")
-          case _ =>
-            val senz = SenzParser.parseSenz(msg)
-            senz match {
-              case Senz(SenzType.SHARE, _, _, _, _) =>
-                onShare(SenzMsg(senz, msg))
-              case Senz(SenzType.GET, _, _, _, _) =>
-                onGet(SenzMsg(senz, msg))
-              case Senz(SenzType.DATA, _, _, _, _) =>
-                onData(SenzMsg(senz, msg))
-              case Senz(SenzType.PUT, _, _, _, _) =>
-                onPut(SenzMsg(senz, msg))
-              case Senz(SenzType.PING, _, _, _, _) =>
-                onPing(SenzMsg(senz, msg))
-              case _ =>
-                logger.error(s"unsupported senz $senz")
-            }
+          // send message back to handler
+          msg match {
+            case "TAK" =>
+              logger.debug("TAK received")
+            case "TIK" =>
+              logger.debug("TIK received")
+            case "TUK" =>
+              logger.debug("TUK received")
+            case _ =>
+              onSenz(msg)
+          }
         }
       }
+    }
 
-      if (isRunning) listen()
+    private def onSenz(msg: String): Unit = {
+      val senz = SenzParser.parseSenz(msg)
+      senz match {
+        case Senz(SenzType.SHARE, _, _, _, _) =>
+          onShare(SenzMsg(senz, msg))
+        case Senz(SenzType.GET, _, _, _, _) =>
+          onGet(SenzMsg(senz, msg))
+        case Senz(SenzType.DATA, _, _, _, _) =>
+          onData(SenzMsg(senz, msg))
+        case Senz(SenzType.PUT, _, _, _, _) =>
+          onPut(SenzMsg(senz, msg))
+        case Senz(SenzType.PING, _, _, _, _) =>
+          onPing(SenzMsg(senz, msg))
+        case _ =>
+          logger.error(s"unsupported senz $senz")
+      }
     }
   }
 
