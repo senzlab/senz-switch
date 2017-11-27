@@ -8,8 +8,7 @@ import com.score.senzswitch.components.{CryptoCompImpl, KeyStoreCompImpl}
 import com.score.senzswitch.config.{AppConfig, DbConfig}
 import com.score.senzswitch.handler._
 import com.score.senzswitch.protocols._
-import com.score.senzswitch.utils.SenzParser
-import org.slf4j.LoggerFactory
+import com.score.senzswitch.utils.{SenzLogger, SenzParser}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
@@ -36,6 +35,7 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
   with PingHandler
   with KeyStoreCompImpl
   with CryptoCompImpl
+  with SenzLogger
   with DbConfig
   with AppConfig {
 
@@ -43,8 +43,6 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
   import context._
 
   val queueActor = context.actorSelection("/user/SenzQueueActor")
-
-  def logger = LoggerFactory.getLogger(this.getClass)
 
   var actorName: String = _
 

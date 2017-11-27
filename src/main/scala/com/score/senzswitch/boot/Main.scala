@@ -11,9 +11,8 @@ import com.score.senzswitch.utils.SenzFactory
 object Main extends App with AppConfig {
 
   // setup logging
-  SenzFactory.setupLogging()
-
   // setup keys
+  SenzFactory.setupLogging()
   SenzFactory.setupKeys()
 
   // start actor

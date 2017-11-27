@@ -11,7 +11,7 @@ trait CryptoComp {
 
   trait Crypto {
 
-    def initKeys()
+    def initKeys(): Unit
 
     def sing(payload: String): String
 

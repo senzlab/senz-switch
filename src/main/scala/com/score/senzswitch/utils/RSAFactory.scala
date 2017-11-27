@@ -1,4 +1,4 @@
-package com.score.senzswitch.crypto
+package com.score.senzswitch.utils
 
 import java.io.{File, FileInputStream, FileOutputStream}
 import java.security._
@@ -8,11 +8,8 @@ import javax.crypto.Cipher
 import com.score.senzswitch.config.AppConfig
 import sun.misc.{BASE64Decoder, BASE64Encoder}
 
-/**
- * Created by eranga on 1/11/16.
- */
-object RSAUtils extends AppConfig {
-  def initRSAKeys() = {
+object RSAFactory extends AppConfig {
+  def initRSAKeys(): Unit = {
     // first create .keys directory
     val dir: File = new File(keysDir)
     if (!dir.exists) {
@@ -26,7 +23,7 @@ object RSAUtils extends AppConfig {
     }
   }
 
-  def generateRSAKeyPair() = {
+  def generateRSAKeyPair(): Unit = {
     // generate key pair
     val keyPairGenerator = KeyPairGenerator.getInstance("RSA")
     keyPairGenerator.initialize(1024, new SecureRandom)
@@ -43,7 +40,7 @@ object RSAUtils extends AppConfig {
     privateKeyStream.write(pkcs8KeySpec.getEncoded)
   }
 
-  def loadRSAKeyPair() = {
+  def loadRSAKeyPair(): KeyPair = {
     // read public key
     val filePublicKey = new File(publicKeyLocation)
     var inputStream = new FileInputStream(publicKeyLocation)
@@ -71,7 +68,7 @@ object RSAUtils extends AppConfig {
     new KeyPair(publicKey, privateKey)
   }
 
-  def loadRSAPublicKey() = {
+  def loadRSAPublicKey(): String = {
     // get public key via key pair
     val keyPair = loadRSAKeyPair()
     val publicKeyStream = keyPair.getPublic.getEncoded
@@ -80,7 +77,7 @@ object RSAUtils extends AppConfig {
     new BASE64Encoder().encode(publicKeyStream).replaceAll("\n", "").replaceAll("\r", "")
   }
 
-  def signSenz(payload: String) = {
+  def sign(payload: String): String = {
     // get private key via key pair
     val keyPair = loadRSAKeyPair()
     val privateKey = keyPair.getPrivate
@@ -94,7 +91,7 @@ object RSAUtils extends AppConfig {
     new BASE64Encoder().encode(signature.sign).replaceAll("\n", "").replaceAll("\r", "")
   }
 
-  def verifySenzSignature(payload: String, signedPayload: String) = {
+  def verifySignature(payload: String, signedPayload: String): Boolean = {
     // get public key via key pair
     val keyPair = loadRSAKeyPair()
     val publicKey = keyPair.getPublic
@@ -107,46 +104,24 @@ object RSAUtils extends AppConfig {
     signature.verify(new BASE64Decoder().decodeBuffer(signedPayload))
   }
 
-  def encrypt(payload: String, publicKey: PublicKey) = {
+  def encrypt(payload: String, publicKey: PublicKey): Array[Byte] = {
     val cipher: Cipher = Cipher.getInstance("RSA")
     cipher.init(Cipher.ENCRYPT_MODE, publicKey)
 
     cipher.doFinal(payload.getBytes)
   }
 
-  def decrypt(payload: Array[Byte], privateKey: PrivateKey) = {
+  def decrypt(payload: Array[Byte], privateKey: PrivateKey): String = {
     val cipher: Cipher = Cipher.getInstance("RSA")
     cipher.init(Cipher.DECRYPT_MODE, privateKey)
     new String(cipher.doFinal(payload))
   }
 
-  def verify(pubKey: String, payload: String, signedPayload: String) = {
-    // public key
-    val keyFactory: KeyFactory = KeyFactory.getInstance("RSA")
-    val publicKeySpec: X509EncodedKeySpec = new X509EncodedKeySpec(new BASE64Decoder().decodeBuffer(pubKey))
-    val publicKey: PublicKey = keyFactory.generatePublic(publicKeySpec)
+  def sha256(payload: String): String = {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val hash = digest.digest(payload.getBytes)
 
-    // verify signature
-    val signature = Signature.getInstance("SHA256withRSA")
-    signature.initVerify(publicKey)
-    signature.update(payload.getBytes)
-
-    // decode(BASE64) signed payload and verify signature
-    signature.verify(new BASE64Decoder().decodeBuffer(signedPayload))
-  }
-
-  def sign(privateKey: String, payload: String) = {
-    val keyFactory: KeyFactory = KeyFactory.getInstance("RSA")
-    val publicKeySpec: X509EncodedKeySpec = new X509EncodedKeySpec(new BASE64Decoder().decodeBuffer(privateKey))
-//    val publicKey: PublicKey = keyFactory.generatePublic(publicKeySpec)
-//
-//    // sign the payload
-//    val signature: Signature = Signature.getInstance("SHA256withRSA")
-//    signature.initSign(privateKey)
-//    signature.update(payload.getBytes)
-//
-//    // signature as Base64 encoded string
-//    new BASE64Encoder().encode(signature.sign).replaceAll("\n", "").replaceAll("\r", "")
+    new BASE64Encoder().encode(hash).replaceAll("\n", "").replaceAll("\r", "")
   }
 
 }

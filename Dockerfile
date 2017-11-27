@@ -47,4 +47,4 @@ EXPOSE 7070
 EXPOSE 7000
 
 # command
-ENTRYPOINT [ "java", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=7000", "-jar", "/app/switch.jar"]
+ENTRYPOINT ["java", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=7000", "-jar", "/app/switch.jar"]

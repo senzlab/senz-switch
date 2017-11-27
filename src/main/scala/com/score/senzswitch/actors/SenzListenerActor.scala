@@ -1,6 +1,5 @@
 package com.score.senzswitch.actors
 
-import java.io.{PrintWriter, StringWriter}
 import java.net.InetSocketAddress
 
 import akka.actor.SupervisorStrategy.Resume
@@ -8,7 +7,7 @@ import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props}
 import akka.io.Tcp.SO.KeepAlive
 import akka.io.{IO, Tcp}
 import com.score.senzswitch.config.AppConfig
-import org.slf4j.LoggerFactory
+import com.score.senzswitch.utils.SenzLogger
 
 object SenzListenerActor {
   val actorRefs = scala.collection.mutable.LinkedHashMap[String, ActorRef]()
@@ -16,12 +15,10 @@ object SenzListenerActor {
   def props: Props = Props(classOf[SenzListenerActor])
 }
 
-class SenzListenerActor extends Actor with AppConfig {
+class SenzListenerActor extends Actor with AppConfig with SenzLogger {
 
   import Tcp._
   import context.system
-
-  def logger = LoggerFactory.getLogger(this.getClass)
 
   val socOp = List(KeepAlive(true))
   IO(Tcp) ! Bind(self, new InetSocketAddress(switchPort), options = socOp)
@@ -29,7 +26,7 @@ class SenzListenerActor extends Actor with AppConfig {
   override def supervisorStrategy = OneForOneStrategy() {
     case e: Exception =>
       logger.error("Exception caught, [STOP ACTOR] " + e)
-      logFailure(e)
+      logError(e)
 
       // stop failed actors here
       Resume
@@ -46,11 +43,5 @@ class SenzListenerActor extends Actor with AppConfig {
     case Tcp.CommandFailed(_: Bind) =>
       logger.error("Bind failed")
       context stop self
-  }
-
-  private def logFailure(throwable: Throwable): Unit = {
-    val writer = new StringWriter
-    throwable.printStackTrace(new PrintWriter(writer))
-    logger.error(writer.toString)
   }
 }

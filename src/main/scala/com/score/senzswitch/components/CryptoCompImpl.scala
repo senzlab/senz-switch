@@ -7,9 +7,7 @@ import com.score.senzswitch.config.AppConfig
 import com.score.senzswitch.protocols.{Senz, SenzType, SwitchKey}
 import sun.misc.{BASE64Decoder, BASE64Encoder}
 
-/**
- * Created by eranga on 7/31/16.
- */
+
 trait CryptoCompImpl extends CryptoComp {
 
   this: KeyStoreComp with AppConfig =>
@@ -18,7 +16,7 @@ trait CryptoCompImpl extends CryptoComp {
 
   class CryptoImpl extends Crypto {
 
-    override def initKeys() = {
+    override def initKeys(): Unit = {
       // only save if keys not exists in db
       keyStore.getSwitchKey match {
         case Some(SwitchKey(_, _)) =>
@@ -37,7 +35,7 @@ trait CryptoCompImpl extends CryptoComp {
       }
     }
 
-    override def sing(payload: String) = {
+    override def sing(payload: String): String = {
       // find private key
       val switchKey = keyStore.getSwitchKey.get
       val keyFactory: KeyFactory = KeyFactory.getInstance("RSA")
@@ -54,7 +52,7 @@ trait CryptoCompImpl extends CryptoComp {
       s"$payload $encodedSignature"
     }
 
-    override def verify(payload: String, senz: Senz) = {
+    override def verify(payload: String, senz: Senz): Boolean = {
       def getSenzieKey(senz: Senz): Option[Array[Byte]] = {
         keyStore.findSenzieKey(senz.sender) match {
           case Some(senzKey) =>
@@ -63,7 +61,7 @@ trait CryptoCompImpl extends CryptoComp {
             // no senz key found
             senz match {
               case Senz(SenzType.SHARE, _, `switchName`, attr, _) =>
-                Some(new BASE64Decoder().decodeBuffer(attr.get("#pubkey").get))
+                Some(new BASE64Decoder().decodeBuffer(attr("#pubkey")))
               case _ =>
                 // no senzie key
                 None
