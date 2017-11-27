@@ -1,6 +1,6 @@
 package com.score.senzswitch.components
 
-import akka.actor.ActorRef
+import com.score.senzswitch.protocols.Ref
 
 /**
   * Created by eranga on 5/20/16.
@@ -10,22 +10,23 @@ trait ActorStoreCompImpl extends ActorStoreComp {
   val actorStore = new ActorStoreImpl
 
   object SenzActorStore {
-    val actorRefs = scala.collection.mutable.LinkedHashMap[String, ActorRef]()
+    val actorRefs = scala.collection.mutable.LinkedHashMap[String, Ref]()
   }
 
   class ActorStoreImpl extends ActorStore {
 
     import SenzActorStore._
 
-    override def getActor(name: String): Option[ActorRef] = {
+    override def getActor(name: String): Option[Ref] = {
       actorRefs.get(name)
     }
 
-    override def addActor(name: String, actorRef: ActorRef) = {
-      actorRefs.put(name, actorRef)
+    override def addActor(name: String, ref: Ref) = {
+      removeActor(name)
+      actorRefs.put(name, ref)
     }
 
-    override def removeActor(name: String) {
+    override def removeActor(name: String): Unit = {
       actorRefs.remove(name)
     }
   }

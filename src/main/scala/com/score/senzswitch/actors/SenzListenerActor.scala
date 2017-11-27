@@ -3,8 +3,8 @@ package com.score.senzswitch.actors
 import java.io.{PrintWriter, StringWriter}
 import java.net.InetSocketAddress
 
-import akka.actor.SupervisorStrategy.{Resume, Stop}
-import akka.actor.{Actor, ActorRef, OneForOneStrategy, Props}
+import akka.actor.SupervisorStrategy.Resume
+import akka.actor.{Actor, OneForOneStrategy, Props}
 import akka.io.Tcp.SO.KeepAlive
 import akka.io.{IO, Tcp}
 import com.score.senzswitch.config.AppConfig
@@ -14,10 +14,10 @@ import org.slf4j.LoggerFactory
 object SenzListenerActor {
   val actorRefs = scala.collection.mutable.LinkedHashMap[String, Ref]()
 
-  def props(queueRef: ActorRef): Props = Props(classOf[SenzListenerActor], queueRef)
+  def props: Props = Props(classOf[SenzListenerActor])
 }
 
-class SenzListenerActor(queueRef: ActorRef) extends Actor with AppConfig {
+class SenzListenerActor extends Actor with AppConfig {
 
   import Tcp._
   import context.system
@@ -42,7 +42,7 @@ class SenzListenerActor(queueRef: ActorRef) extends Actor with AppConfig {
     case Tcp.Connected(remote, local) =>
       logger.info(s"Client connected from ${remote.getHostName}")
 
-      val handler = context.actorOf(SenzHandlerActor.props(sender, queueRef))
+      val handler = context.actorOf(SenzHandlerActor.props(sender))
       sender ! Tcp.Register(handler, keepOpenOnPeerClosed = false)
     case Tcp.CommandFailed(_: Bind) =>
       logger.error("Bind failed")
