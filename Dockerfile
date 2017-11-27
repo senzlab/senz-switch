@@ -43,5 +43,8 @@ VOLUME ["/app/.keys"]
 # Service run on 7070 port
 EXPOSE 7070
 
+# For debugging
+EXPOSE 7000
+
 # command
-ENTRYPOINT [ "java", "-jar", "/app/switch.jar" ]
+ENTRYPOINT [ "java", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=7000", "-jar", "/app/switch.jar"]

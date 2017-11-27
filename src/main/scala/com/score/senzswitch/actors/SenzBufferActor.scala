@@ -25,12 +25,12 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with AppConfig {
   var buffer = new StringBuffer()
   val bufferListener = new BufferListener()
 
-  override def preStart() = {
+  override def preStart(): Unit = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
     bufferListener.start()
   }
 
-  override def postStop() = {
+  override def postStop(): Unit = {
     logger.info(s"[_________STOP ACTOR__________] ${context.self.path}")
     bufferListener.shutdown()
   }
@@ -44,12 +44,12 @@ class SenzBufferActor(handlerRef: ActorRef) extends Actor with AppConfig {
   protected class BufferListener extends Thread {
     var isRunning = true
 
-    def shutdown() = {
+    def shutdown(): Unit = {
       logger.info(s"Shutdown BufferListener")
       isRunning = false
     }
 
-    override def run() = {
+    override def run(): Unit = {
       logger.info(s"Start BufferListener")
 
       if (isRunning) listen()

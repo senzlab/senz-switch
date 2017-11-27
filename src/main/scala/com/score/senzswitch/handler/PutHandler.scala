@@ -14,14 +14,14 @@ trait PutHandler {
       case "*" =>
         // broadcast senz
         SenzListenerActor.actorRefs.foreach {
-          ar => if (!ar._1.equalsIgnoreCase(actorName)) ar._2.actorRef ! Msg(senzMsg.data)
+          ar => if (!ar._1.equalsIgnoreCase(actorName)) ar._2 ! Msg(senzMsg.data)
         }
       case _ =>
         // forward message to receiver
         // send status back to sender
         if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
           logger.debug(s"Store contains actor with " + senz.receiver)
-          SenzListenerActor.actorRefs(senz.receiver).actorRef ! Msg(senzMsg.data)
+          SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
         } else {
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 

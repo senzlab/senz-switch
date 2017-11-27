@@ -47,7 +47,6 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
   def logger = LoggerFactory.getLogger(this.getClass)
 
   var actorName: String = _
-  var actorRef: Ref = _
 
   // buffers
   var buffer = new StringBuffer()
@@ -71,22 +70,8 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
 
     bufferListener.shutdown()
 
-    // remove ref
-    if (actorName != null) {
-      SenzListenerActor.actorRefs.get(actorName) match {
-        case Some(Ref(_, actorId)) =>
-          if (actorRef.actorId.id == actorId.id) {
-            // same actor, so remove it
-            SenzListenerActor.actorRefs.remove(actorName)
-
-            logger.debug(s"Remove actor with id $actorId")
-          } else {
-            logger.debug(s"Nothing to remove actor id mismatch $actorId : ${actorRef.actorId.id}")
-          }
-        case None =>
-          logger.debug(s"No actor found with $actorName")
-      }
-    }
+    // remove actor from store
+    SenzListenerActor.actorRefs.remove(actorName)
   }
 
   override def receive: Receive = {

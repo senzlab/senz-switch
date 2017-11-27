@@ -2,7 +2,7 @@ package com.score.senzswitch.handler
 
 import com.score.senzswitch.actors.SenzQueueActor.Dispatch
 import com.score.senzswitch.actors.{SenzHandlerActor, SenzListenerActor}
-import com.score.senzswitch.protocols.{Msg, Ref, SenzMsg}
+import com.score.senzswitch.protocols.{Msg, SenzMsg}
 
 trait PingHandler {
   this: SenzHandlerActor =>
@@ -11,12 +11,11 @@ trait PingHandler {
     val senz = senzMsg.senz
     logger.info(s"PING from senzie ${senz.sender}")
 
-    // popup refs
+    // remove existing store in store
+    // popup store
     actorName = senz.sender
-    actorRef = Ref(self)
-    SenzListenerActor.actorRefs.put(actorName, actorRef)
-
-    logger.debug(s"added ref with ${actorRef.actorId.id}")
+    SenzListenerActor.actorRefs.remove(actorName)
+    SenzListenerActor.actorRefs.put(actorName, self)
 
     // send TAK on connect
     self ! Msg("TAK")

@@ -1,20 +1,17 @@
 package com.score.senzswitch.components
 
-import com.score.senzswitch.protocols.Ref
+import akka.actor.ActorRef
 
-/**
-  * Created by eranga on 5/20/16.
-  */
 trait ActorStoreComp {
 
   val actorStore: ActorStore
 
   trait ActorStore {
-    def getActor(name: String): Option[Ref]
+    def getActor(name: String): Option[ActorRef]
 
-    def addActor(name: String, ref: Ref)
+    def addActor(name: String, actor: ActorRef): Unit
 
-    def removeActor(name: String)
+    def removeActor(name: String): Option[ActorRef]
   }
 
 }

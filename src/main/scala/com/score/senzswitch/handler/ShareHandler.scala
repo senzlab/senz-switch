@@ -1,7 +1,7 @@
 package com.score.senzswitch.handler
 
 import com.score.senzswitch.actors.{SenzHandlerActor, SenzListenerActor}
-import com.score.senzswitch.protocols.{Msg, Ref, SenzKey, SenzMsg}
+import com.score.senzswitch.protocols.{Msg, SenzKey, SenzMsg}
 
 trait ShareHandler {
   this: SenzHandlerActor =>
@@ -20,14 +20,11 @@ trait ShareHandler {
           case Some(SenzKey(`senzSender`, `key`)) =>
             logger.debug(s"Have senzie with name $senzSender and key $key")
 
-            // popup refs
+            // remove existing actor in store
+            // popup store
             actorName = senzMsg.senz.sender
-            actorRef = Ref(self)
-
-            // remove existing actor (if have)
-            SenzListenerActor.actorRefs.put(actorName, actorRef)
-
-            logger.debug(s"added ref with ${actorRef.actorId.id}")
+            SenzListenerActor.actorRefs.remove(actorName)
+            SenzListenerActor.actorRefs.put(actorName, self)
 
             // share from already registered senzie
             val payload = s"DATA #status REG_ALR #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
@@ -42,12 +39,11 @@ trait ShareHandler {
           case _ =>
             logger.debug("No senzies with name " + senzMsg.senz.sender)
 
-            // popup refs
+            // remove existing actor in store
+            // popup store
             actorName = senzMsg.senz.sender
-            actorRef = Ref(self)
-            SenzListenerActor.actorRefs.put(actorName, actorRef)
-
-            logger.debug(s"added ref with ${actorRef.actorId.id}")
+            SenzListenerActor.actorRefs.remove(actorName)
+            SenzListenerActor.actorRefs.put(actorName, self)
 
             keyStore.saveSenzieKey(SenzKey(senz.sender, senz.attributes("#pubkey")))
 
@@ -65,7 +61,7 @@ trait ShareHandler {
           // mark as shared attributes
           // shareStore.share(senz.sender, senz.receiver, senz.attributes.keySet.toList)
 
-          SenzListenerActor.actorRefs(senz.receiver).actorRef ! Msg(senzMsg.data)
+          SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
         } else {
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 

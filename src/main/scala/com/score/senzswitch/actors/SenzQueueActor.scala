@@ -75,7 +75,7 @@ class SenzQueueActor extends Actor {
           // for calls/selfies we don't send status back
           if (!qObj.senzMsg.senz.attributes.contains("#senz")) {
             val payload = s"DATA #status DELIVERED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
-            SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender).actorRef ! Msg(payload)
+            SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
           }
         case None =>
           // no matcher
@@ -93,7 +93,7 @@ class SenzQueueActor extends Actor {
 
     // send RECEIVED status back to sender
     val payload = s"DATA #status RECEIVED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
-    SenzListenerActor.actorRefs(sender).actorRef ! Msg(payload)
+    SenzListenerActor.actorRefs(sender) ! Msg(payload)
   }
 
   private def matchSenderReceiver(qObj1: QueueObj, qObj2: QueueObj): Boolean = {
