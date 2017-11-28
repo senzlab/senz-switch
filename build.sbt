@@ -6,7 +6,7 @@ scalaVersion := "2.11.8"
 
 libraryDependencies ++= {
 
-  val akkaVersion       = "2.4.9"
+  val akkaVersion       = "2.5.6"
   val cassandraVersion  = "3.0.0"
 
   Seq(

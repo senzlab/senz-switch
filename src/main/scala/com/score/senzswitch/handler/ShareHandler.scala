@@ -53,10 +53,14 @@ trait ShareHandler {
             val payload = s"DATA #status REG_DONE #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
             self ! Msg(crypto.sing(payload))
         }
+      case "*" =>
+        // broadcast senz to all
+        SenzListenerActor.actorRefs.foreach {
+          ar => if (!ar._1.equalsIgnoreCase(actorName)) ar._2 ! Msg(senzMsg.data)
+        }
       case _ =>
         // share senz for other senzie
         // forward senz to receiver
-        logger.debug(s"SHARE from senzie $actorName")
         if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
           // mark as shared attributes
           // shareStore.share(senz.sender, senz.receiver, senz.attributes.keySet.toList)

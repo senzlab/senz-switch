@@ -29,6 +29,11 @@ trait GetHandler {
           val payload = s"DATA #status $status #name $user @${senz.sender} ^${senz.receiver}"
           self ! Msg(crypto.sing(payload))
         }
+      case "*" =>
+        // broadcast senz
+        SenzListenerActor.actorRefs.foreach {
+          ar => if (!ar._1.equalsIgnoreCase(actorName)) ar._2 ! Msg(senzMsg.data)
+        }
       case _ =>
         // get senz for other senzie
         // queue it first (only for #cam and #mic)

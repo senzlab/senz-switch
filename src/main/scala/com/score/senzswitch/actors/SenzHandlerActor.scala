@@ -55,7 +55,7 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
 
   context watch connection
 
-  val tikCancel = system.scheduler.schedule(60.seconds, 120.seconds, self, Msg("TIK"))
+  system.scheduler.schedule(60.seconds, 120.seconds, self, Msg("TIK"))
 
   override def preStart(): Unit = {
     logger.info(s"[_________START ACTOR__________] ${context.self.path}")
