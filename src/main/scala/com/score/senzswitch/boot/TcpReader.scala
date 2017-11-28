@@ -77,8 +77,6 @@ class TcpReader(soc: Socket, ref: ActorRef) extends Actor with KeyStoreCompImpl 
         onData(SenzMsg(senz, msg))
       case Senz(SenzType.PUT, _, _, _, _) =>
         onPut(SenzMsg(senz, msg))
-      case Senz(SenzType.PING, _, _, _, _) =>
-        onPing(SenzMsg(senz, msg))
       case _ =>
         logger.error(s"unsupported senz $senz")
     }

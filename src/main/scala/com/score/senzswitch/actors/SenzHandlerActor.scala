@@ -32,7 +32,6 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
   with GetHandler
   with DataHandler
   with PutHandler
-  with PingHandler
   with KeyStoreCompImpl
   with CryptoCompImpl
   with SenzLogger
@@ -48,7 +47,7 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
 
   // buffers
   var buffer = new StringBuffer()
-  val bufferListener = new BufferListener()
+  val bufferWatcher = new Thread(new BufferWatcher, "BufferWatcher")
 
   // keep msgs when waiting for an ack
   var waitingMsgBuffer = new ListBuffer[Msg]
@@ -58,18 +57,12 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
   system.scheduler.schedule(60.seconds, 120.seconds, self, Msg("TIK"))
 
   override def preStart(): Unit = {
-    logger.info(s"[_________START ACTOR__________] ${context.self.path}")
-
-    bufferListener.start()
+    bufferWatcher.setDaemon(true)
+    bufferWatcher.start()
   }
 
   override def postStop(): Unit = {
-    logger.info(s"[_________STOP ACTOR__________] ${context.self.path} of $actorName")
-
-    bufferListener.shutdown()
-
-    // remove actor from store
-    SenzListenerActor.actorRefs.remove(actorName)
+    bufferWatcher.interrupt()
   }
 
   override def receive: Receive = {
@@ -113,22 +106,13 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
       }
   }
 
-  protected class BufferListener extends Thread {
-    var isRunning = true
-
-    def shutdown(): Unit = {
-      logger.info(s"Shutdown BufferListener")
-      isRunning = false
-    }
-
+  protected class BufferWatcher extends Runnable {
     override def run(): Unit = {
-      logger.info(s"Start BufferListener")
-
-      if (isRunning) listen()
+      listen()
     }
 
     private def listen(): Unit = {
-      while (isRunning) {
+      while (!Thread.currentThread().isInterrupted) {
         val index = buffer.indexOf(";")
         if (index != -1) {
           val msg = buffer.substring(0, index)
@@ -161,8 +145,6 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
           onData(SenzMsg(senz, msg))
         case Senz(SenzType.PUT, _, _, _, _) =>
           onPut(SenzMsg(senz, msg))
-        case Senz(SenzType.PING, _, _, _, _) =>
-          onPing(SenzMsg(senz, msg))
         case _ =>
           logger.error(s"unsupported senz $senz")
       }

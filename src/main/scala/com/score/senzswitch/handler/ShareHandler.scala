@@ -23,6 +23,7 @@ trait ShareHandler {
             // remove existing actor in store
             // popup store
             actorName = senzMsg.senz.sender
+            context stop SenzListenerActor.actorRefs(actorName)
             SenzListenerActor.actorRefs.remove(actorName)
             SenzListenerActor.actorRefs.put(actorName, self)
 
@@ -42,6 +43,7 @@ trait ShareHandler {
             // remove existing actor in store
             // popup store
             actorName = senzMsg.senz.sender
+            context stop SenzListenerActor.actorRefs(actorName)
             SenzListenerActor.actorRefs.remove(actorName)
             SenzListenerActor.actorRefs.put(actorName, self)
 

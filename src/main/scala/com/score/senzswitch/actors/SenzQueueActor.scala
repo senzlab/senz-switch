@@ -2,8 +2,7 @@ package com.score.senzswitch.actors
 
 import akka.actor.{Actor, ActorRef, Props}
 import com.score.senzswitch.protocols.{Msg, SenzMsg}
-import com.score.senzswitch.utils.SenzParser
-import org.slf4j.LoggerFactory
+import com.score.senzswitch.utils.{SenzLogger, SenzParser}
 import sun.misc.BASE64Encoder
 
 object SenzQueueActor {
@@ -22,11 +21,9 @@ object SenzQueueActor {
 
 }
 
-class SenzQueueActor extends Actor {
+class SenzQueueActor extends Actor with SenzLogger {
 
   import SenzQueueActor._
-
-  def logger = LoggerFactory.getLogger(this.getClass)
 
   override def receive = {
     case Enqueue(qObj) =>
