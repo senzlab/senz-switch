@@ -13,7 +13,7 @@ import com.score.senzswitch.utils.{SenzLogger, SenzParser}
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 
-object SenzHandlerActor {
+object SenzieActor {
 
   case object Ack extends Event
 
@@ -23,11 +23,11 @@ object SenzHandlerActor {
 
   case object Tuk
 
-  def props(connection: ActorRef) = Props(classOf[SenzHandlerActor], connection)
+  def props(connection: ActorRef) = Props(classOf[SenzieActor], connection)
 
 }
 
-class SenzHandlerActor(connection: ActorRef) extends Actor
+class SenzieActor(connection: ActorRef) extends Actor
   with ShareHandler
   with GetHandler
   with DataHandler
@@ -38,10 +38,10 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
   with DbConfig
   with AppConfig {
 
-  import SenzHandlerActor._
+  import SenzieActor._
   import context._
 
-  val queueActor = context.actorSelection("/user/SenzQueueActor")
+  val queueActor = context.actorSelection("/user/QueueActor")
 
   var actorName: String = _
 
@@ -106,7 +106,7 @@ class SenzHandlerActor(connection: ActorRef) extends Actor
       }
   }
 
-  protected class BufferWatcher extends Runnable {
+  class BufferWatcher extends Runnable {
     override def run(): Unit = {
       listen()
     }

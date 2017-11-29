@@ -5,7 +5,7 @@ import com.score.senzswitch.protocols.{Msg, SenzMsg}
 import com.score.senzswitch.utils.{SenzLogger, SenzParser}
 import sun.misc.BASE64Encoder
 
-object SenzQueueActor {
+object QueueActor {
 
   val senzQueue = scala.collection.mutable.ListBuffer[QueueObj]()
 
@@ -17,13 +17,13 @@ object SenzQueueActor {
 
   case class Dispatch(actorRef: ActorRef, user: String)
 
-  def props = Props(classOf[SenzQueueActor])
+  def props = Props(classOf[QueueActor])
 
 }
 
-class SenzQueueActor extends Actor with SenzLogger {
+class QueueActor extends Actor with SenzLogger {
 
-  import SenzQueueActor._
+  import QueueActor._
 
   override def receive = {
     case Enqueue(qObj) =>
@@ -72,7 +72,7 @@ class SenzQueueActor extends Actor with SenzLogger {
           // for calls/selfies we don't send status back
           if (!qObj.senzMsg.senz.attributes.contains("#senz")) {
             val payload = s"DATA #status DELIVERED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
-            SenzListenerActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
+            SenzActor.actorRefs(qObj.senzMsg.senz.sender) ! Msg(payload)
           }
         case None =>
           // no matcher
@@ -90,7 +90,7 @@ class SenzQueueActor extends Actor with SenzLogger {
 
     // send RECEIVED status back to sender
     val payload = s"DATA #status RECEIVED #uid ${qObj.uid} @${qObj.senzMsg.senz.sender} ^senzswitch SIGNATURE"
-    SenzListenerActor.actorRefs(sender) ! Msg(payload)
+    SenzActor.actorRefs(sender) ! Msg(payload)
   }
 
   private def matchSenderReceiver(qObj1: QueueObj, qObj2: QueueObj): Boolean = {

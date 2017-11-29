@@ -9,13 +9,13 @@ import akka.io.{IO, Tcp}
 import com.score.senzswitch.config.AppConfig
 import com.score.senzswitch.utils.SenzLogger
 
-object SenzListenerActor {
+object SenzActor {
   val actorRefs = scala.collection.mutable.LinkedHashMap[String, ActorRef]()
 
-  def props: Props = Props(classOf[SenzListenerActor])
+  def props: Props = Props(classOf[SenzActor])
 }
 
-class SenzListenerActor extends Actor with AppConfig with SenzLogger {
+class SenzActor extends Actor with AppConfig with SenzLogger {
 
   import Tcp._
   import context.system
@@ -25,10 +25,9 @@ class SenzListenerActor extends Actor with AppConfig with SenzLogger {
 
   override def supervisorStrategy = OneForOneStrategy() {
     case e: Exception =>
-      logger.error("Exception caught, [STOP ACTOR] " + e)
       logError(e)
 
-      // stop failed actors here
+      // resume failed actors here
       Resume
   }
 
@@ -36,9 +35,9 @@ class SenzListenerActor extends Actor with AppConfig with SenzLogger {
     case Tcp.Bound(localAddress) =>
       logger.info("Bound connection to host " + localAddress.getHostName)
     case Tcp.Connected(remote, local) =>
-      logger.info(s"Client connected from ${remote.getHostName}")
+      logger.info(s"Client connected from ${remote.getHostName} to ${local.getHostName}")
 
-      val handler = context.actorOf(SenzHandlerActor.props(sender))
+      val handler = context.actorOf(SenzieActor.props(sender))
       sender ! Tcp.Register(handler, keepOpenOnPeerClosed = false)
     case Tcp.CommandFailed(_: Bind) =>
       logger.error("Bind failed")

@@ -1,10 +1,10 @@
 package com.score.senzswitch.handler
 
-import com.score.senzswitch.actors.{SenzHandlerActor, SenzListenerActor}
+import com.score.senzswitch.actors.{SenzActor, SenzieActor}
 import com.score.senzswitch.protocols.{Msg, SenzKey, SenzMsg}
 
 trait ShareHandler {
-  this: SenzHandlerActor =>
+  this: SenzieActor =>
 
   def onShare(senzMsg: SenzMsg): Unit = {
     val senz = senzMsg.senz
@@ -23,9 +23,11 @@ trait ShareHandler {
             // remove existing actor in store
             // popup store
             actorName = senzMsg.senz.sender
-            context stop SenzListenerActor.actorRefs(actorName)
-            SenzListenerActor.actorRefs.remove(actorName)
-            SenzListenerActor.actorRefs.put(actorName, self)
+            if (SenzActor.actorRefs.contains(actorName)) {
+              context stop SenzActor.actorRefs(actorName)
+              SenzActor.actorRefs.remove(actorName)
+            }
+            SenzActor.actorRefs.put(actorName, self)
 
             // share from already registered senzie
             val payload = s"DATA #status REG_ALR #pubkey ${keyStore.getSwitchKey.get.pubKey} @${senz.sender} ^${senz.receiver}"
@@ -43,9 +45,11 @@ trait ShareHandler {
             // remove existing actor in store
             // popup store
             actorName = senzMsg.senz.sender
-            context stop SenzListenerActor.actorRefs(actorName)
-            SenzListenerActor.actorRefs.remove(actorName)
-            SenzListenerActor.actorRefs.put(actorName, self)
+            if (SenzActor.actorRefs.contains(actorName)) {
+              context stop SenzActor.actorRefs(actorName)
+              SenzActor.actorRefs.remove(actorName)
+            }
+            SenzActor.actorRefs.put(actorName, self)
 
             keyStore.saveSenzieKey(SenzKey(senz.sender, senz.attributes("#pubkey")))
 
@@ -57,17 +61,16 @@ trait ShareHandler {
         }
       case "*" =>
         // broadcast senz to all
-        SenzListenerActor.actorRefs.foreach {
+        SenzActor.actorRefs.foreach {
           ar => if (!ar._1.equalsIgnoreCase(actorName)) ar._2 ! Msg(senzMsg.data)
         }
       case _ =>
         // share senz for other senzie
         // forward senz to receiver
-        if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
+        if (SenzActor.actorRefs.contains(senz.receiver)) {
           // mark as shared attributes
           // shareStore.share(senz.sender, senz.receiver, senz.attributes.keySet.toList)
-
-          SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
+          SenzActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
         } else {
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 

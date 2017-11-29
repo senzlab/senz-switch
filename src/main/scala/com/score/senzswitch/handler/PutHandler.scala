@@ -1,10 +1,10 @@
 package com.score.senzswitch.handler
 
-import com.score.senzswitch.actors.{SenzHandlerActor, SenzListenerActor}
+import com.score.senzswitch.actors.{SenzieActor, SenzActor}
 import com.score.senzswitch.protocols.{Msg, SenzMsg}
 
 trait PutHandler {
-  this: SenzHandlerActor =>
+  this: SenzieActor =>
 
   def onPut(senzMsg: SenzMsg): Unit = {
     val senz = senzMsg.senz
@@ -13,15 +13,15 @@ trait PutHandler {
     senz.receiver match {
       case "*" =>
         // broadcast senz
-        SenzListenerActor.actorRefs.foreach {
+        SenzActor.actorRefs.foreach {
           ar => if (!ar._1.equalsIgnoreCase(actorName)) ar._2 ! Msg(senzMsg.data)
         }
       case _ =>
         // forward message to receiver
         // send status back to sender
-        if (SenzListenerActor.actorRefs.contains(senz.receiver)) {
+        if (SenzActor.actorRefs.contains(senz.receiver)) {
           logger.debug(s"Store contains actor with " + senz.receiver)
-          SenzListenerActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
+          SenzActor.actorRefs(senz.receiver) ! Msg(senzMsg.data)
         } else {
           logger.error(s"Store NOT contains actor with " + senz.receiver)
 
